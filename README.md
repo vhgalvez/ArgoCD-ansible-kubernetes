@@ -42,6 +42,13 @@ Ejecuta el siguiente comando desde la raíz del proyecto:
 ansible-playbook -i inventory/hosts.ini playbooks/deploy_argocd.yml
 ```
 
+
+
+```bash
+nohup kubectl port-forward -n argocd svc/argocd-server --address 0.0.0.0 32004:80 > /tmp/argocd-port-forward.log 2>&1 &
+```
+https://192.168.0.15:32004/
+
 ## 🌐 Acceso a ArgoCD
 
 Puedes acceder mediante dos opciones:
@@ -63,6 +70,8 @@ Puedes acceder mediante dos opciones:
 Puedes verificar que ArgoCD esté funcionando correctamente:
 
 ```bash
+kubectl get pods -n argocd -o wide
+
 kubectl get pods -n argocd
 kubectl get svc -n argocd
 kubectl get ingress -n argocd
