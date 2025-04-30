@@ -1,0 +1,42 @@
+---
+# 🎯 Exponer servicios Jenkins y ArgoCD vía port-forward
+
+- name: Exponer servicios en puertos accesibles desde red local
+  hosts: controller
+  gather_facts: false
+  vars_files:
+    - ../group_vars/all.yml
+  environment:
+    PATH: "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+    KUBECONFIG: "/home/victory/.kube/config"
+
+  tasks:
+    - name: Exponer Jenkins con port-forward en segundo plano
+      shell: |
+        nohup kubectl port-forward -n {{ helm_namespace }} svc/{{ jenkins_release_name }} --address 0.0.0.0 32000:8080 > /tmp/jenkins-port-forward.log 2>&1 &
+      async: 1
+      poll: 0
+      ignore_errors: true
+
+    - name: Mostrar acceso a Jenkins
+      debug:
+        msg: |
+          🟢 Jenkins accesible en: http://192.168.0.15:32000
+          👉 Usuario: admin
+          👉 Obtener contraseña:
+             kubectl -n {{ helm_namespace }} get secret {{ jenkins_release_name }} -o jsonpath="{.data.jenkins-admin-password}" | base64 -d && echo
+
+    - name: Exponer ArgoCD con port-forward en segundo plano
+      shell: |
+        nohup kubectl port-forward -n argocd svc/argocd-server --address 0.0.0.0 32004:80 > /tmp/argocd-port-forward.log 2>&1 &
+      async: 1
+      poll: 0
+      ignore_errors: true
+
+    - name: Mostrar acceso a ArgoCD
+      debug:
+        msg: |
+          🟢 ArgoCD accesible en: http://192.168.0.15:32004
+          👉 Usuario: admin
+          👉 Obtener contraseña:
+             kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d && echo

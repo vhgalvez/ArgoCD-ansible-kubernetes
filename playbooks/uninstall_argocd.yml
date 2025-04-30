@@ -1,0 +1,34 @@
+---
+# 🧹 Desinstalación completa de ArgoCD en Kubernetes
+
+- name: Desinstalar ArgoCD
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_files:
+    - ../group_vars/all.yml
+  environment:
+    PATH: "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+    KUBECONFIG: "{{ kubeconfig_path }}"
+
+  tasks:
+    - name: Detener port-forward en segundo plano (si existe)
+      shell: |
+        pids=$(ps aux | grep 'kubectl port-forward.*argocd-server' | grep -v grep | awk '{print $2}')
+        if [ -n "$pids" ]; then kill $pids; fi
+      ignore_errors: true
+
+    - name: Eliminar namespace ArgoCD
+      shell: kubectl delete namespace {{ argocd_namespace }}
+      ignore_errors: false
+
+    - name: Confirmar que el namespace se ha eliminado
+      shell: |
+        for i in $(seq 1 30); do
+          ns=$(kubectl get ns {{ argocd_namespace }} --ignore-not-found)
+          if [ -z "$ns" ]; then exit 0; fi
+          echo "⌛ Esperando eliminación del namespace {{ argocd_namespace }}..."
+          sleep 2
+        done
+        echo "❌ El namespace no se eliminó correctamente."; exit 1
+      ignore_errors: false
