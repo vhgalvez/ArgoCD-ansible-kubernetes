@@ -36,8 +36,11 @@
             name: argocd-server
           spec:
             type: NodePort
+            selector:
+              app.kubernetes.io/name: argocd-server
             ports:
-              - port: 80
+              - name: http
+                port: 80
                 targetPort: 8080
                 nodePort: "{{ node_port }}"
                 protocol: TCP
