@@ -1,0 +1,66 @@
+# playbooks\deploy_argocd.yml
+---
+- name: Deploy ArgoCD with NodePort and Ingress
+  hosts: controller
+  gather_facts: no
+  become: true
+
+  vars:
+    argocd_namespace: argocd
+    ingress_host: argocd.local
+    node_port: 32004
+
+  tasks:
+    - name: Create ArgoCD namespace
+      kubernetes.core.k8s:
+        name: "{{ argocd_namespace }}"
+        api_version: v1
+        kind: Namespace
+        state: present
+
+    - name: Deploy ArgoCD manifests
+      kubernetes.core.k8s:
+        state: present
+        namespace: "{{ argocd_namespace }}"
+        src: https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+
+    - name: Patch ArgoCD Server service to use NodePort
+      kubernetes.core.k8s:
+        state: present
+        namespace: "{{ argocd_namespace }}"
+        definition:
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: argocd-server
+          spec:
+            type: NodePort
+            ports:
+              - port: 80
+                targetPort: 8080
+                nodePort: "{{ node_port }}"
+                protocol: TCP
+
+    - name: Create Ingress for ArgoCD via NodePort
+      kubernetes.core.k8s:
+        state: present
+        namespace: "{{ argocd_namespace }}"
+        definition:
+          apiVersion: networking.k8s.io/v1
+          kind: Ingress
+          metadata:
+            name: argocd-ingress
+            annotations:
+              kubernetes.io/ingress.class: traefik
+          spec:
+            rules:
+              - host: "{{ ingress_host }}"
+                http:
+                  paths:
+                    - path: /
+                      pathType: Prefix
+                      backend:
+                        service:
+                          name: argocd-server
+                          port:
+                            number: 80
