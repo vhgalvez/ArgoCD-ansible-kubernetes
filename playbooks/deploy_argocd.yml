@@ -10,9 +10,8 @@
 
   tasks:
     - name: Generar contraseña base64 para ArgoCD
-      command: "echo -n '{{ argocd_admin_password }}' | base64"
-      register: argocd_admin_password_b64
-      delegate_to: localhost
+      set_fact:
+        argocd_admin_password_b64: "{{ argocd_admin_password | b64encode }}"
 
     - name: Create ArgoCD namespace
       kubernetes.core.k8s:
@@ -76,4 +75,4 @@
             tls:
               - hosts:
                   - "{{ ingress_host }}"
-                secretName: selfsigned-cert  # Asegúrate de que este Secret esté creado
+                secretName: selfsigned-cert # Asegúrate de que este Secret esté creado
