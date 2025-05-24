@@ -1,45 +1,74 @@
 # playbooks\deploy_argocd.yml
 ---
-- name: Desplegar ArgoCD vía Helm con Traefik Ingress
-  hosts: controller
-  become: true
-  gather_facts: false
+- name: Deploy ArgoCD with Ingress and Custom Admin Password
+  hosts: localhost
+  connection: local
+  gather_facts: no
+
   vars_files:
-    - group_vars/all.yml
-  environment:
-    KUBECONFIG: "{{ kubeconfig_path }}"
+    - ../group_vars/all.yml
 
   tasks:
-    - name: Crear namespace de ArgoCD
+    - name: Create ArgoCD namespace
+      kubernetes.core.k8s:
+        name: "{{ argocd_namespace }}"
+        api_version: v1
+        kind: Namespace
+        state: present
+        kubeconfig: "{{ kubeconfig_path }}"
+
+    - name: Create ArgoCD Secret with custom admin password
       kubernetes.core.k8s:
         state: present
+        namespace: "{{ argocd_namespace }}"
         kubeconfig: "{{ kubeconfig_path }}"
         definition:
           apiVersion: v1
-          kind: Namespace
+          kind: Secret
           metadata:
-            name: "{{ argocd_namespace }}"
+            name: argocd-secret
+            labels:
+              app.kubernetes.io/name: argocd-secret
+              app.kubernetes.io/part-of: argocd
+          type: Opaque
+          data:
+            admin.password: "{{ argocd_admin_password_b64 }}"
+            admin.passwordMtime: "$(date +%FT%T%Z | base64)"
 
-    - name: Agregar repositorio Helm de ArgoCD
-      command: helm repo add argo https://argoproj.github.io/argo-helm
-      register: argo_repo
-      failed_when: argo_repo.rc != 0 and "already exists" not in argo_repo.stderr
-
-    - name: Actualizar repositorios Helm
-      command: helm repo update
-
-    - name: Renderizar archivo values.yaml.j2
-      template:
-        src: templates/argocd/values.yaml.j2
-        dest: /tmp/argocd-values.yaml
-
-    - name: Instalar ArgoCD con Helm
-      kubernetes.core.helm:
-        name: argocd
-        chart_ref: argo/argo-cd
-        chart_version: "{{ argocd_chart_version }}"
-        release_namespace: "{{ argocd_namespace }}"
-        create_namespace: false
-        values_files:
-          - /tmp/argocd-values.yaml
+    - name: Deploy ArgoCD manifests
+      kubernetes.core.k8s:
+        state: present
+        namespace: "{{ argocd_namespace }}"
+        src: https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
         kubeconfig: "{{ kubeconfig_path }}"
+
+    - name: Create Ingress for ArgoCD
+      kubernetes.core.k8s:
+        state: present
+        namespace: "{{ argocd_namespace }}"
+        kubeconfig: "{{ kubeconfig_path }}"
+        definition:
+          apiVersion: networking.k8s.io/v1
+          kind: Ingress
+          metadata:
+            name: argocd-ingress
+            annotations:
+              kubernetes.io/ingress.class: traefik
+              traefik.ingress.kubernetes.io/router.entrypoints: websecure
+              traefik.ingress.kubernetes.io/router.tls: "true"
+          spec:
+            rules:
+              - host: "{{ ingress_host }}"
+                http:
+                  paths:
+                    - path: /
+                      pathType: Prefix
+                      backend:
+                        service:
+                          name: argocd-server
+                          port:
+                            number: 80
+            tls:
+              - hosts:
+                  - "{{ ingress_host }}"
+                secretName: selfsigned-cert
