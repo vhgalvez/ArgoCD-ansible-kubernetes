@@ -1,5 +1,5 @@
 # group_vars\all.yml
 argocd_namespace: argocd
-ingress_host: argocd.local
-node_port: 32004
+ingress_host: argocd.cefaslocalserver.com
 kubeconfig_path: "/home/victory/.kube/config"
+argocd_chart_version: "5.51.6"  # versión estable de ArgoCD Helm chart

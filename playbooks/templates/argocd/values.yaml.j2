@@ -1,0 +1,41 @@
+# playbooks\templates\values.yaml.j2
+configs:
+  params:
+    server.insecure: true
+
+server:
+  service:
+    type: ClusterIP
+    portHttp: 80
+    portHttps: 443
+
+  ingress:
+    enabled: true
+    ingressClassName: traefik
+    hostname: "{{ ingress_host }}"
+    annotations:
+      kubernetes.io/ingress.class: traefik
+      traefik.ingress.kubernetes.io/router.entrypoints: websecure
+      traefik.ingress.kubernetes.io/router.tls: "true"
+    paths:
+      - path: /
+        pathType: Prefix
+    tls:
+      - hosts:
+          - "{{ ingress_host }}"
+        secretName: selfsigned-cert  # ← Ya creado en el clúster
+
+  extraArgs:
+    - --basehref=/
+  insecure: true
+
+repoServer:
+  service:
+    type: ClusterIP
+
+dex:
+  enabled: false
+
+controller:
+  service:
+    type: ClusterIP
