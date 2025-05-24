@@ -3,5 +3,5 @@ argocd_namespace: argocd
 ingress_host: argocd.cefaslocalserver.com
 kubeconfig_path: "/home/victory/.kube/config"
 argocd_chart_version: "5.51.6"  # versión estable de ArgoCD Helm chart
-argocd_admin_password: "admin123"
-argocd_admin_password_b64: "$(echo -n admin123 | base64)"
+argocd_admin_password: "admin123"  # Contraseña en texto claro
+argocd_admin_password_b64: ""  # Esto será generado en el playbook

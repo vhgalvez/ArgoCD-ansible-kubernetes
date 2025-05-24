@@ -1,4 +1,4 @@
-# playbooks\deploy_argocd.yml
+# playbooks/deploy_argocd.yml
 ---
 - name: Deploy ArgoCD with Ingress and Custom Admin Password
   hosts: localhost
@@ -9,6 +9,11 @@
     - ../group_vars/all.yml
 
   tasks:
+    - name: Generar contraseña base64 para ArgoCD
+      command: "echo -n '{{ argocd_admin_password }}' | base64"
+      register: argocd_admin_password_b64
+      delegate_to: localhost
+
     - name: Create ArgoCD namespace
       kubernetes.core.k8s:
         name: "{{ argocd_namespace }}"
@@ -32,8 +37,8 @@
               app.kubernetes.io/part-of: argocd
           type: Opaque
           data:
-            admin.password: "{{ argocd_admin_password_b64 }}"
-            admin.passwordMtime: "$(date +%FT%T%Z | base64)"
+            admin.password: "{{ argocd_admin_password_b64.stdout }}"
+            admin.passwordMtime: "{{ lookup('pipe', 'date +%FT%T%Z') | b64encode }}"
 
     - name: Deploy ArgoCD manifests
       kubernetes.core.k8s:
@@ -71,4 +76,4 @@
             tls:
               - hosts:
                   - "{{ ingress_host }}"
-                secretName: selfsigned-cert
+                secretName: selfsigned-cert  # Asegúrate de que este Secret esté creado
