@@ -1,0 +1,20 @@
+# vars/main.yml
+
+argocd_auth_user: "{{ lookup('env', 'ARGOCD_AUTH_USER') }}"
+argocd_auth_pass: "{{ lookup('env', 'ARGOCD_AUTH_PASS') }}"
+
+argocd_namespace: argocd
+argocd_dashboard_domain: argocd.socialdevs.site
+
+argocd_middleware_name: argocd-dashboard-auth
+argocd_secret_name: argocd-dashboard-auth
+
+tls_secret_name: wildcard-socialdevs-tls
+
+kubeconfig_path: "/home/victory/.kube/config"
+kubeconfig_token_path: "/home/victory/.kube/token.jwt"
+kubectl_path: "/usr/local/bin/kubectl"
+kubeseal_path: "/usr/local/bin/kubeseal"
+
+vip_kubernetes: "192.168.0.32"
+http_to_https_redirect: true

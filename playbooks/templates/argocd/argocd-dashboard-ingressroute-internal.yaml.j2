@@ -1,0 +1,30 @@
+# playbooks\templates\argocd\argocd-dashboard-ingressroute-internal.yaml.j2
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: ingressroute-argocd-internal
+  namespace: {{ argocd_namespace }}
+  labels:
+    app.kubernetes.io/name: argocd
+    app.kubernetes.io/component: ingress
+    environment: prod
+  annotations:
+    created-by: ansible
+    maintained-by: devops@socialdevs.site
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`{{ argocd_dashboard_domain }}`) && PathPrefix(`/`)
+      kind: Rule
+      services:
+        - name: argocd-server
+          port: 80
+          scheme: http
+      middlewares:
+        - name: {{ argocd_middleware_name }}
+          namespace: {{ argocd_namespace }}
+  tls:
+    store:
+      name: default
+      namespace: kube-system

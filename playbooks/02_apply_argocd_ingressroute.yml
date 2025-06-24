@@ -1,0 +1,37 @@
+# playbooks\02_apply_argocd_ingressroute.yml
+---
+- name: 🚀 Aplicar IngressRoute interno de ArgoCD desde plantilla Jinja2
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../vars/main.yml
+
+  vars:
+    rendered_file: "{{ playbook_dir }}/files/argocd-dashboard-ingressroute.yaml"
+    template_src: "../templates/argocd/argocd-dashboard-ingressroute-internal.yaml.j2"
+
+  tasks:
+    - name: 📁 Crear directorio temporal de archivos renderizados
+      file:
+        path: "{{ playbook_dir }}/files"
+        state: directory
+        mode: "0755"
+
+    - name: 📝 Renderizar plantilla Jinja2 del IngressRoute de ArgoCD
+      template:
+        src: "{{ template_src }}"
+        dest: "{{ rendered_file }}"
+
+    - name: 🧩 Aplicar manifiesto al clúster con kubectl
+      command: >
+        {{ kubectl_path }} --kubeconfig {{ kubeconfig_path }}
+        apply -f {{ rendered_file }}
+      register: kubectl_apply_result
+      changed_when: "'created' in kubectl_apply_result.stdout or 'configured' in kubectl_apply_result.stdout"
+      environment:
+        KUBECONFIG: "{{ kubeconfig_path }}"
+
+    - name: 📤 Resultado de la aplicación
+      debug:
+        var: kubectl_apply_result.stdout

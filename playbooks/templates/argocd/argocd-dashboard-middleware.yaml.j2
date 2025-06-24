@@ -1,0 +1,10 @@
+
+# playbooks\templates\argocd\argocd-dashboard-middleware.yaml.j2
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ argocd_middleware_name }}
+  namespace: {{ argocd_namespace }}
+spec:
+  basicAuth:
+    secret: {{ argocd_secret_name }}
