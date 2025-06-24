@@ -17,13 +17,10 @@ server:
       kubernetes.io/ingress.class: traefik
       traefik.ingress.kubernetes.io/router.entrypoints: websecure
       traefik.ingress.kubernetes.io/router.tls: "true"
+      traefik.ingress.kubernetes.io/tls.store: "kube-system/default"
     paths:
       - path: /
         pathType: Prefix
-    tls:
-      - hosts:
-          - "{{ ingress_host }}"
-        secretName: selfsigned-cert  # ← Ya creado en el clúster
 
   extraArgs:
     - --basehref=/
