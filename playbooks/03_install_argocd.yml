@@ -1,19 +1,19 @@
-# playbooks/deploy_argocd.yml
+# playbooks/03_install_argocd.yml
 ---
-- name: Deploy ArgoCD with Ingress and Custom Admin Password
+- name: 🚀 Instalar ArgoCD con Ingress y contraseña personalizada
   hosts: localhost
   connection: local
-  gather_facts: no
+  gather_facts: false
 
   vars_files:
     - ../group_vars/all.yml
 
   tasks:
-    - name: Generar contraseña base64 para ArgoCD
+    - name: 🔐 Generar contraseña base64 para ArgoCD
       set_fact:
         argocd_admin_password_b64: "{{ argocd_admin_password | b64encode }}"
 
-    - name: Create ArgoCD namespace
+    - name: 📦 Crear namespace para ArgoCD
       kubernetes.core.k8s:
         name: "{{ argocd_namespace }}"
         api_version: v1
@@ -21,7 +21,7 @@
         state: present
         kubeconfig: "{{ kubeconfig_path }}"
 
-    - name: Create ArgoCD Secret with custom admin password
+    - name: 🔑 Crear Secret con contraseña personalizada
       kubernetes.core.k8s:
         state: present
         namespace: "{{ argocd_namespace }}"
@@ -39,14 +39,14 @@
             admin.password: "{{ argocd_admin_password_b64.stdout }}"
             admin.passwordMtime: "{{ lookup('pipe', 'date +%FT%T%Z') | b64encode }}"
 
-    - name: Deploy ArgoCD manifests
+    - name: 📥 Desplegar manifiestos oficiales de ArgoCD
       kubernetes.core.k8s:
         state: present
         namespace: "{{ argocd_namespace }}"
         src: https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
         kubeconfig: "{{ kubeconfig_path }}"
 
-    - name: Create Ingress for ArgoCD
+    - name: 🌐 Crear Ingress HTTPs para acceso externo con Traefik
       kubernetes.core.k8s:
         state: present
         namespace: "{{ argocd_namespace }}"
@@ -62,7 +62,7 @@
               traefik.ingress.kubernetes.io/router.tls: "true"
           spec:
             rules:
-              - host: "{{ ingress_host }}"
+              - host: "{{ argocd_dashboard_domain }}"
                 http:
                   paths:
                     - path: /
@@ -74,5 +74,5 @@
                             number: 80
             tls:
               - hosts:
-                  - "{{ ingress_host }}"
-                secretName: selfsigned-cert # Asegúrate de que este Secret esté creado
+                  - "{{ argocd_dashboard_domain }}"
+                secretName: "{{ tls_secret_name }}"

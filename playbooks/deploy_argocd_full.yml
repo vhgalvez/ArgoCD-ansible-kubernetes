@@ -1,0 +1,41 @@
+# playbooks\deploy_argocd_full.yml
+---
+- name: 🚀 Desplegar ArgoCD completo con autenticación básica e IngressRoute
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../vars/main.yml
+
+  pre_tasks:
+    - name: ⚠️ Verificar que ARGOCD_AUTH_USER y PASS estén definidos
+      fail:
+        msg: "Faltan variables de entorno ARGOCD_AUTH_USER o ARGOCD_AUTH_PASS"
+      when: argocd_auth_user is not defined or argocd_auth_pass is not defined
+
+  tasks:
+
+    - name: 🔐 Generar y aplicar Secret sellado de autenticación básica
+      import_playbook: 01_generate-auth-secret.yml
+
+    - name: 🎯 Desplegar ArgoCD (namespace, Secret, manifiestos e Ingress)
+      import_playbook: deploy_argocd.yml
+
+    - name: 🌐 Aplicar IngressRoute personalizado (Traefik CRD)
+      import_playbook: 02_apply_argocd_ingressroute.yml
+
+    - name: ⏱️ Esperar a que el pod de argocd-server esté listo
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Pod
+        namespace: "{{ argocd_namespace }}"
+        label_selectors:
+          - "app.kubernetes.io/name=argocd-server"
+      register: argocd_pods
+      until: argocd_pods.resources | selectattr('status.phase', 'equalto', 'Running') | list | length > 0
+      retries: 20
+      delay: 10
+
+    - name: ✅ Mostrar acceso web
+      debug:
+        msg: "ArgoCD disponible en: https://{{ argocd_dashboard_domain }}"

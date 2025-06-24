@@ -1,6 +1,6 @@
 # playbooks\02_apply_argocd_ingressroute.yml
 ---
-- name: 🚀 Aplicar IngressRoute interno de ArgoCD desde plantilla Jinja2
+- name: 🌐 Aplicar IngressRoute interna para ArgoCD (Traefik CRD)
   hosts: localhost
   gather_facts: false
 
@@ -8,30 +8,24 @@
     - ../vars/main.yml
 
   vars:
-    rendered_file: "{{ playbook_dir }}/files/argocd-dashboard-ingressroute.yaml"
-    template_src: "../templates/argocd/argocd-dashboard-ingressroute-internal.yaml.j2"
+    template_file: "../templates/argocd/argocd-dashboard-ingressroute-internal.yaml.j2"
+    rendered_manifest: "{{ playbook_dir }}/files/argocd-dashboard-ingressroute.yaml"
 
   tasks:
-    - name: 📁 Crear directorio temporal de archivos renderizados
-      file:
-        path: "{{ playbook_dir }}/files"
-        state: directory
-        mode: "0755"
-
-    - name: 📝 Renderizar plantilla Jinja2 del IngressRoute de ArgoCD
+    - name: 📄 Renderizar plantilla de IngressRoute
       template:
-        src: "{{ template_src }}"
-        dest: "{{ rendered_file }}"
+        src: "{{ template_file }}"
+        dest: "{{ rendered_manifest }}"
 
-    - name: 🧩 Aplicar manifiesto al clúster con kubectl
-      command: >
-        {{ kubectl_path }} --kubeconfig {{ kubeconfig_path }}
-        apply -f {{ rendered_file }}
-      register: kubectl_apply_result
-      changed_when: "'created' in kubectl_apply_result.stdout or 'configured' in kubectl_apply_result.stdout"
+    - name: 🚀 Aplicar IngressRoute al clúster
+      ansible.builtin.command:
+        cmd: "{{ kubectl_path }} --kubeconfig {{ kubeconfig_path }} apply -f {{ rendered_manifest }}"
+      register: apply_ingressroute_result
+      changed_when: "'created' in apply_ingressroute_result.stdout or 'configured' in apply_ingressroute_result.stdout"
       environment:
         KUBECONFIG: "{{ kubeconfig_path }}"
 
-    - name: 📤 Resultado de la aplicación
-      debug:
-        var: kubectl_apply_result.stdout
+    - name: 🧹 Eliminar manifiesto renderizado
+      file:
+        path: "{{ rendered_manifest }}"
+        state: absent
