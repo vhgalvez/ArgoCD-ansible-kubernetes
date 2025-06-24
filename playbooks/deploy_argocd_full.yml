@@ -1,6 +1,6 @@
 # playbooks\deploy_argocd_full.yml
 ---
-- name: 🚀 Desplegar ArgoCD completo con autenticación básica e IngressRoute
+- name: 🚀 Desplegar ArgoCD completo con autenticación básica, Ingress y Traefik CRDs
   hosts: localhost
   gather_facts: false
 
@@ -10,7 +10,7 @@
   pre_tasks:
     - name: ⚠️ Verificar que ARGOCD_AUTH_USER y PASS estén definidos
       fail:
-        msg: "Faltan variables de entorno ARGOCD_AUTH_USER o ARGOCD_AUTH_PASS"
+        msg: "❌ Faltan variables de entorno ARGOCD_AUTH_USER o ARGOCD_AUTH_PASS"
       when: argocd_auth_user is not defined or argocd_auth_pass is not defined
 
   tasks:
@@ -18,10 +18,10 @@
     - name: 🔐 Generar y aplicar Secret sellado de autenticación básica
       import_playbook: 01_generate-auth-secret.yml
 
-    - name: 🎯 Desplegar ArgoCD (namespace, Secret, manifiestos e Ingress)
-      import_playbook: deploy_argocd.yml
+    - name: 📦 Instalar ArgoCD con manifiestos y Ingress básico
+      import_playbook: 03_install_argocd.yml
 
-    - name: 🌐 Aplicar IngressRoute personalizado (Traefik CRD)
+    - name: 🌐 Aplicar IngressRoute con autenticación (Traefik CRD)
       import_playbook: 02_apply_argocd_ingressroute.yml
 
     - name: ⏱️ Esperar a que el pod de argocd-server esté listo
@@ -38,4 +38,4 @@
 
     - name: ✅ Mostrar acceso web
       debug:
-        msg: "ArgoCD disponible en: https://{{ argocd_dashboard_domain }}"
+        msg: "✅ ArgoCD disponible en: https://{{ argocd_dashboard_domain }}"
