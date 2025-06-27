@@ -91,3 +91,6 @@ export ARGOCD_AUTH_PASS="SuperPassword123"
 
 # 2. Ejecutar el playbook maestro con variables heredadas
 sudo -E ansible-playbook -i inventory/hosts.ini playbooks/deploy_argocd_full.yml
+
+
+source .env && export ARGOCD_AUTH_USER="$ARGOCD_AUTH_USER" ARGOCD_AUTH_PASS="$ARGOCD_ADMIN_PASSWORD" && sudo -E ansible-playbook -i inventory/hosts.ini playbooks/deploy_argocd_full.yml
