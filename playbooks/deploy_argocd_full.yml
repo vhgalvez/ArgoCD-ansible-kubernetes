@@ -1,9 +1,43 @@
+# playbooks/deploy_argocd_full.yml
 # 🔧 Playbook maestro para desplegar ArgoCD completo
 # Ejecuta en orden:
 # ❶ Generar SealedSecret de autenticación básica
 # ❷ Instalar ArgoCD con contraseña admin
 # ❸ Aplicar IngressRoute protegida
+# ❹ Verificar acceso al Dashboard
 
 - import_playbook: 01_generate-auth-secret.yml
 - import_playbook: 03_install_argocd.yml
 - import_playbook: 02_apply_argocd_ingressroute.yml
+
+- name: 🌐 Verificar acceso al Dashboard de ArgoCD (modo tolerante)
+  hosts: localhost
+  gather_facts: false
+  become: false
+
+  vars_files:
+    - ../vars/main.yml
+
+  tasks:
+    - name: 🌐 Verificar acceso al Dashboard
+      shell: >
+        curl --http1.1 -k -u {{ argocd_auth_user }}:{{ argocd_auth_pass }}
+        https://{{ argocd_dashboard_domain }}/
+        --max-time 10 --silent --output /dev/null --write-out '%{http_code}'
+      environment:
+        KUBECONFIG: "{{ kubeconfig_path }}"
+      register: dashboard_access_check
+      failed_when: >
+        dashboard_access_check.stdout is defined and
+        dashboard_access_check.stdout not in ["200", "302", "401"]
+      changed_when: false
+      ignore_errors: false
+
+    - name: 🛠️ Depuración de acceso al dashboard
+      debug:
+        msg: "Código HTTP recibido del dashboard: {{ dashboard_access_check.stdout }}"
+
+    - name: ❌ Fallar si no se puede acceder al dashboard
+      fail:
+        msg: "El acceso al dashboard falló. Código HTTP: {{ dashboard_access_check.stdout }}"
+      when: dashboard_access_check.stdout not in ["200", "302", "401"]

@@ -1,12 +1,14 @@
-# playbooks\uninstall_argocd.yml
+# playbooks/uninstall_argocd.yml
+# 🧹 Desinstalar completamente ArgoCD, su autenticación y el namespace
 ---
 - name: 🧹 Desinstalar ArgoCD y sus recursos relacionados
   hosts: localhost
   connection: local
   gather_facts: false
+  become: false
 
   vars_files:
-    - ../group_vars/all.yml
+    - ../vars/main.yml
 
   environment:
     KUBECONFIG: "{{ kubeconfig_path }}"
@@ -46,7 +48,7 @@
             name: "{{ argocd_secret_name }}"
             namespace: "{{ argocd_namespace }}"
 
-    - name: 🧽 Eliminar Secret personalizado (si quedó sin sellar)
+    - name: 🧽 Eliminar Secret plano (admin.password)
       kubernetes.core.k8s:
         state: absent
         kubeconfig: "{{ kubeconfig_path }}"

@@ -16,3 +16,5 @@ vip_kubernetes: "192.168.0.32"
 http_to_https_redirect: true
 
 
+domain: argocd.socialdevs.site
+argocd_dashboard_domain: "{{ domain }}"
