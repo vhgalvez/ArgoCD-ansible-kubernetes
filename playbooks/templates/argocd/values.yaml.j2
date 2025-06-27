@@ -1,7 +1,7 @@
 # playbooks\templates\values.yaml.j2
 configs:
   params:
-    server.insecure: true
+    server.insecure: true  # Permite UI sin HTTPS interno (Traefik termina TLS)
 
 server:
   service:
@@ -9,30 +9,24 @@ server:
     portHttp: 80
     portHttps: 443
 
+  # ❌ Desactivamos el Ingress del chart porque usas IngressRoute personalizado
   ingress:
-    enabled: true
-    ingressClassName: traefik
-    hostname: "{{ ingress_host }}"
-    annotations:
-      kubernetes.io/ingress.class: traefik
-      traefik.ingress.kubernetes.io/router.entrypoints: websecure
-      traefik.ingress.kubernetes.io/router.tls: "true"
-      traefik.ingress.kubernetes.io/tls.store: "kube-system/default"
-    paths:
-      - path: /
-        pathType: Prefix
+    enabled: false
 
+  # ✅ Root path (mejor que basehref)
   extraArgs:
-    - --basehref=/
+    - --rootpath=/
+
+  # ⚠️ Habilita HTTP interno para el dashboard detrás de Traefik
   insecure: true
 
 repoServer:
   service:
     type: ClusterIP
 
-dex:
-  enabled: false
-
 controller:
   service:
     type: ClusterIP
+
+dex:
+  enabled: false  # No necesitas OIDC en esta fase
