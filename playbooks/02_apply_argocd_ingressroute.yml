@@ -1,4 +1,5 @@
 # playbooks\02_apply_argocd_ingressroute.yml
+# 🌐 Aplicar IngressRoute interna protegida para ArgoCD (Traefik)
 ---
 - name: 🌐 Aplicar IngressRoute interna para ArgoCD (Traefik CRD)
   hosts: localhost
