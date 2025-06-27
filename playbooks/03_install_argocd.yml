@@ -44,16 +44,15 @@
     - name: 📄 Instalar / actualizar todos los CRDs de Traefik (bundle oficial v3.x)
       kubernetes.core.k8s:
         state: present
-        src: https://raw.githubusercontent.com/traefik/traefik/v3.4/docs/content/reference/dynamic-configuration/kubernetes-crd-definition-v1.yml
+        src: https://raw.githubusercontent.com/traefik/traefik/v3.4.1/pkg/provider/kubernetes/crd/traefik-crd.yaml
         kubeconfig: "{{ kubeconfig_path }}"
       register: traefik_crds_result
       retries: 3
       delay: 5
       until: traefik_crds_result is succeeded
 
-    - name: 📥 Aplicar manifiestos oficiales de ArgoCD
+    - name: 📥 Aplicar manifiestos oficiales de ArgoCD (v2.11.2)
       kubernetes.core.k8s:
         state: present
-        namespace: "{{ argocd_namespace }}"
-        src: https://raw.githubusercontent.com/traefik/traefik/v3.4.1/pkg/provider/kubernetes/crd/traefik-crd.yaml
         kubeconfig: "{{ kubeconfig_path }}"
+        definition: "{{ lookup('url', 'https://raw.githubusercontent.com/argoproj/argo-cd/v2.11.2/manifests/install.yaml') }}"
