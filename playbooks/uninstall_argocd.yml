@@ -31,7 +31,7 @@
           apiVersion: traefik.io/v1alpha1
           kind: Middleware
           metadata:
-            name: "{{ argocd_middleware_name }}"
+            name: "{{ argocd_middleware_name | default('argocd-auth') }}"
             namespace: "{{ argocd_namespace }}"
 
     - name: Eliminar SealedSecret de autenticación básica
@@ -42,7 +42,7 @@
           apiVersion: bitnami.com/v1alpha1
           kind: SealedSecret
           metadata:
-            name: "{{ argocd_secret_name }}"
+            name: "{{ argocd_secret_name | default('argocd-dashboard-secret') }}"
             namespace: "{{ argocd_namespace }}"
 
     - name: Eliminar Secret personalizado (si quedó sin sellar)
