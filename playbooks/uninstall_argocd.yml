@@ -12,6 +12,7 @@
     KUBECONFIG: "{{ kubeconfig_path }}"
 
   tasks:
+
     - name: ❌ Eliminar IngressRoute del Dashboard de ArgoCD
       kubernetes.core.k8s:
         state: absent
@@ -22,6 +23,7 @@
           metadata:
             name: ingressroute-argocd-internal
             namespace: "{{ argocd_namespace }}"
+      tags: [argocd, ingressroute]
 
     - name: ❌ Eliminar Middleware de autenticación de ArgoCD
       kubernetes.core.k8s:
@@ -33,6 +35,7 @@
           metadata:
             name: "{{ argocd_middleware_name }}"
             namespace: "{{ argocd_namespace }}"
+      tags: [argocd, middleware]
 
     - name: ❌ Eliminar SealedSecret de autenticación básica
       kubernetes.core.k8s:
@@ -44,8 +47,9 @@
           metadata:
             name: "{{ argocd_secret_name }}"
             namespace: "{{ argocd_namespace }}"
+      tags: [argocd, sealedsecret]
 
-    - name: ❌ Eliminar Secret de autenticación si existe sin sellar
+    - name: ❌ Eliminar Secret de autenticación sin sellar
       kubernetes.core.k8s:
         state: absent
         kubeconfig: "{{ kubeconfig_path }}"
@@ -55,6 +59,7 @@
           metadata:
             name: "{{ argocd_secret_name }}"
             namespace: "{{ argocd_namespace }}"
+      tags: [argocd, secret]
 
     - name: ❌ Eliminar Secret de contraseña admin de ArgoCD
       kubernetes.core.k8s:
@@ -66,6 +71,39 @@
           metadata:
             name: argocd-secret
             namespace: "{{ argocd_namespace }}"
+      tags: [argocd, secret]
+
+    - name: ❌ Eliminar ConfigMaps de ArgoCD
+      kubernetes.core.k8s:
+        state: absent
+        kubeconfig: "{{ kubeconfig_path }}"
+        kind: ConfigMap
+        api_version: v1
+        name: argocd-cm
+        namespace: "{{ argocd_namespace }}"
+      ignore_errors: true
+      tags: [argocd, configmap]
+
+    - name: ❌ Eliminar ServiceAccounts de ArgoCD
+      kubernetes.core.k8s:
+        state: absent
+        kubeconfig: "{{ kubeconfig_path }}"
+        kind: ServiceAccount
+        api_version: v1
+        name: argocd-server
+        namespace: "{{ argocd_namespace }}"
+      ignore_errors: true
+      tags: [argocd, serviceaccount]
+
+    - name: ❌ Eliminar ClusterRoleBinding de ArgoCD (si se creó globalmente)
+      kubernetes.core.k8s:
+        state: absent
+        kubeconfig: "{{ kubeconfig_path }}"
+        kind: ClusterRoleBinding
+        api_version: rbac.authorization.k8s.io/v1
+        name: argocd-server
+      ignore_errors: true
+      tags: [argocd, rbac]
 
     - name: 🧹 Eliminar namespace completo de ArgoCD
       kubernetes.core.k8s:
@@ -74,3 +112,4 @@
         kind: Namespace
         state: absent
         kubeconfig: "{{ kubeconfig_path }}"
+      tags: [argocd, namespace]
