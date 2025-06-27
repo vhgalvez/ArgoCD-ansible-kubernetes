@@ -1,5 +1,5 @@
 # playbooks/02_install_argocd.yml
-# 🚀 Instalar ArgoCD + CRDs Traefik + reinicio Traefik
+# 🚀 Instalar ArgoCD + CRDs Traefik + reinicio Traefik + patch argocd-cm
 ---
 - name: 🚀 Instalar ArgoCD con contraseña personalizada
   hosts: localhost
@@ -7,160 +7,182 @@
   become: false
 
   vars_files:
-    - ../vars/main.yml
+    - ../vars/main.yml                       # variables globales
 
   tasks:
-    # ------------------------------------------------------------------ #
-    # 1) Secret de admin ------------------------------------------------ #
-    # ------------------------------------------------------------------ #
-    - name: 🔐 Codificar contraseña admin en base64
-      set_fact:
-        argocd_admin_password_b64: "{{ argocd_auth_pass | b64encode }}"
+  # ------------------------------------------------------------------ #
+  # 1) Secret de admin                                                 #
+  # ------------------------------------------------------------------ #
+  - name: 🔐 Codificar contraseña admin en base64
+    set_fact:
+      argocd_admin_password_b64: "{{ argocd_auth_pass | b64encode }}"
 
-    - name: 📦 Crear namespace para ArgoCD
-      kubernetes.core.k8s:
-        api_version: v1
-        kind: Namespace
-        name: "{{ argocd_namespace }}"
-        state: present
-        kubeconfig: "{{ kubeconfig_path }}"
+  - name: 📦 Crear namespace para ArgoCD
+    kubernetes.core.k8s:
+      api_version: v1
+      kind: Namespace
+      name: "{{ argocd_namespace }}"
+      state: present
+      kubeconfig: "{{ kubeconfig_path }}"
 
-    - name: 🔑 Secret con contraseña de administrador
-      kubernetes.core.k8s:
-        state: present
-        namespace: "{{ argocd_namespace }}"
-        kubeconfig: "{{ kubeconfig_path }}"
-        definition:
-          apiVersion: v1
-          kind: Secret
-          metadata:
-            name: argocd-secret
-            labels:
-              app.kubernetes.io/name: argocd-secret
-              app.kubernetes.io/part-of: argocd
-          type: Opaque
-          data:
-            admin.password: "{{ argocd_admin_password_b64 }}"
-            admin.passwordMtime: "{{ lookup('pipe', 'date +%FT%TZ') | b64encode }}"
+  - name: 🔑 Secret con contraseña de administrador
+    kubernetes.core.k8s:
+      state: present
+      namespace: "{{ argocd_namespace }}"
+      kubeconfig: "{{ kubeconfig_path }}"
+      definition:
+        apiVersion: v1
+        kind: Secret
+        metadata:
+          name: argocd-secret
+          labels:
+            app.kubernetes.io/name: argocd-secret
+            app.kubernetes.io/part-of: argocd
+        type: Opaque
+        data:
+          admin.password: "{{ argocd_admin_password_b64 }}"
+          admin.passwordMtime: "{{ lookup('pipe', 'date +%FT%TZ') | b64encode }}"
 
-    # ------------------------------------------------------------------ #
-    # 2) CRDs + RBAC de Traefik 3.4 ------------------------------------ #
-    # ------------------------------------------------------------------ #
-    - name: 📄 Instalar CRDs de Traefik (bundle oficial v3.4)
-      kubernetes.core.k8s:
-        state: present
-        src: https://raw.githubusercontent.com/traefik/traefik/v3.4/docs/content/reference/dynamic-configuration/kubernetes-crd-definition-v1.yml
-        kubeconfig: "{{ kubeconfig_path }}"
-      register: traefik_crds_result
-      retries: 3
-      delay: 5
-      until: traefik_crds_result is succeeded
+  # ------------------------------------------------------------------ #
+  # 2) CRDs + RBAC de Traefik 3.4                                      #
+  # ------------------------------------------------------------------ #
+  - name: 📄 Instalar CRDs de Traefik (bundle v3.4)
+    kubernetes.core.k8s:
+      state: present
+      src: https://raw.githubusercontent.com/traefik/traefik/v3.4/docs/content/reference/dynamic-configuration/kubernetes-crd-definition-v1.yml
+      kubeconfig: "{{ kubeconfig_path }}"
 
-    - name: 📄 Instalar RBAC para CRDs de Traefik (v3.4)
-      kubernetes.core.k8s:
-        state: present
-        src: https://raw.githubusercontent.com/traefik/traefik/v3.4/docs/content/reference/dynamic-configuration/kubernetes-crd-rbac.yml
-        kubeconfig: "{{ kubeconfig_path }}"
+  - name: 📄 Instalar RBAC para CRDs de Traefik (v3.4)
+    kubernetes.core.k8s:
+      state: present
+      src: https://raw.githubusercontent.com/traefik/traefik/v3.4/docs/content/reference/dynamic-configuration/kubernetes-crd-rbac.yml
+      kubeconfig: "{{ kubeconfig_path }}"
 
-    # ------------------------------------------------------------------ #
-    # 3) Reiniciar Traefik para que registre los nuevos CRDs ------------ #
-    # ------------------------------------------------------------------ #
-    - name: 🔄 Reiniciar Deployment de Traefik para que registre los CRDs
-      kubernetes.core.k8s:
-        api_version: apps/v1
-        kind: Deployment
-        name: traefik
-        namespace: kube-system
-        kubeconfig: "{{ kubeconfig_path }}"
-        definition:
-          spec:
-            template:
-              metadata:
-                annotations:
-                  reload-timestamp: "{{ lookup('pipe','date +%s') }}"
+  # ------------------------------------------------------------------ #
+  # 3) Reiniciar Traefik para que cargue los nuevos CRDs               #
+  # ------------------------------------------------------------------ #
+  - name: 🔄 Reiniciar Deployment Traefik
+    kubernetes.core.k8s:
+      api_version: apps/v1
+      kind: Deployment
+      name: traefik
+      namespace: kube-system
+      kubeconfig: "{{ kubeconfig_path }}"
+      definition:
+        spec:
+          template:
+            metadata:
+              annotations:
+                reload-timestamp: "{{ lookup('pipe','date +%s') }}"
 
-    - name: ⏳ Esperar a que Traefik vuelva a estar listo
-      kubernetes.core.k8s_info:
-        api_version: apps/v1
-        kind: Deployment
-        name: traefik
-        namespace: kube-system
-        kubeconfig: "{{ kubeconfig_path }}"
-      register: traefik_status
-      retries: 20
-      delay: 6
-      until: >
-        traefik_status.resources[0].status.readyReplicas is defined and
-        traefik_status.resources[0].status.readyReplicas |
-        int == traefik_status.resources[0].status.replicas | int
+  - name: ⏳ Esperar a que Traefik vuelva a estar listo
+    kubernetes.core.k8s_info:
+      api_version: apps/v1
+      kind: Deployment
+      name: traefik
+      namespace: kube-system
+      kubeconfig: "{{ kubeconfig_path }}"
+    register: traefik_status
+    retries: 20
+    delay: 6
+    until: >
+      traefik_status.resources
+      and traefik_status.resources[0].status.readyReplicas is defined
+      and traefik_status.resources[0].status.readyReplicas
+        | int == traefik_status.resources[0].status.replicas | int
 
-    # ------------------------------------------------------------------ #
-    # 4) Instalar ArgoCD (manifiesto oficial v2.11.2) ------------------- #
-    # ------------------------------------------------------------------ #
-    - name: 📥 Aplicar manifiestos oficiales de ArgoCD (v2.11.2)
-      command: >
-        {{ kubectl_path }} --kubeconfig {{ kubeconfig_path }}
-        apply -n {{ argocd_namespace }}
-        -f https://raw.githubusercontent.com/argoproj/argo-cd/v2.11.2/manifests/install.yaml
-      register: argocd_apply_result
-      changed_when: "'configured' in argocd_apply_result.stdout or 'created' in argocd_apply_result.stdout"
+  # ------------------------------------------------------------------ #
+  # 4) Aplicar manifiesto oficial de ArgoCD                            #
+  # ------------------------------------------------------------------ #
+  - name: 📥 Instalar ArgoCD 2.11.2
+    command: >
+      {{ kubectl_path }} --kubeconfig {{ kubeconfig_path }}
+      apply -n {{ argocd_namespace }}
+      -f https://raw.githubusercontent.com/argoproj/argo-cd/v2.11.2/manifests/install.yaml
+    register: argocd_apply
+    changed_when: "'configured' in argocd_apply.stdout or 'created' in argocd_apply.stdout"
 
-    # ------------------------------------------------------------------ #
-    # 5) Esperar readiness del Deployment argocd-server ---------------- #
-    # ------------------------------------------------------------------ #
-    - name: ⏳ Esperar a que el Deployment argocd-server esté disponible
-      kubernetes.core.k8s_info:
-        api_version: apps/v1
-        kind: Deployment
-        name: argocd-server
-        namespace: "{{ argocd_namespace }}"
-        kubeconfig: "{{ kubeconfig_path }}"
-      register: deploy_info
-      retries: 30
-      delay: 10
-      until: >
-        deploy_info.resources and
-        deploy_info.resources[0].status.conditions is defined and
-        (
-          deploy_info.resources[0].status.conditions
+  # ------------------------------------------------------------------ #
+  # 5) Parchear argocd-cm con la URL pública                           #
+  # ------------------------------------------------------------------ #
+  - name: 🌐 Establecer url externa en argocd-cm
+    kubernetes.core.k8s:
+      state: present
+      kubeconfig: "{{ kubeconfig_path }}"
+      definition:
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: argocd-cm
+          namespace: "{{ argocd_namespace }}"
+        data:
+          url: "https://{{ argocd_dashboard_domain }}"
+
+  - name: 🔄 Reiniciar argocd-server para aplicar configuración
+    kubernetes.core.k8s:
+      api_version: apps/v1
+      kind: Deployment
+      name: argocd-server
+      namespace: "{{ argocd_namespace }}"
+      kubeconfig: "{{ kubeconfig_path }}"
+      definition:
+        spec:
+          template:
+            metadata:
+              annotations:
+                reload-timestamp: "{{ lookup('pipe','date +%s') }}"
+
+  # ------------------------------------------------------------------ #
+  # 6) Espera + DEBUG en caso de fallo                                 #
+  # ------------------------------------------------------------------ #
+  - name: ⏳ Esperar a que argocd-server esté disponible
+    kubernetes.core.k8s_info:
+      api_version: apps/v1
+      kind: Deployment
+      name: argocd-server
+      namespace: "{{ argocd_namespace }}"
+      kubeconfig: "{{ kubeconfig_path }}"
+    register: deploy_info
+    retries: 30
+    delay: 10
+    until: >
+      deploy_info.resources
+      and deploy_info.resources[0].status.conditions is defined
+      and (
+        deploy_info.resources[0].status.conditions
           | selectattr('type', 'equalto', 'Available')
           | selectattr('status', 'equalto', 'True')
           | list | length
-        ) > 0
+      ) > 0
 
-    # ------------------------------------------------------------------ #
-    # 6) Diagnóstico si falla ------------------------------------------ #
-    # ------------------------------------------------------------------ #
-    - name: ⚠️ Debug si el Deployment no está listo
-      when: deploy_info.resources | length > 0 and
-            ( deploy_info.resources[0].status.availableReplicas | default(0) | int ) == 0
-      block:
-        - name: Mostrar condiciones del deployment
-          kubernetes.core.k8s_info:
-            api_version: apps/v1
-            kind: Deployment
-            name: argocd-server
-            namespace: "{{ argocd_namespace }}"
-            kubeconfig: "{{ kubeconfig_path }}"
-          register: diag_deploy
+  # -- DEBUG extra si no está listo en el primer intento --------------
+  - name: ⚠️ Debug si el Deployment no está listo
+    when: deploy_info.resources | length > 0 and
+          (
+            deploy_info.resources[0].status.conditions
+            | selectattr('type','equalto','Available')
+            | selectattr('status','equalto','True')
+            | list | length
+          ) == 0
+    block:
+      - name: Mostrar condiciones del deployment
+        debug:
+          var: deploy_info.resources[0].status.conditions
 
-        - debug:
-            var: diag_deploy.resources[0].status.conditions
+      - name: Listar pods de argocd-server
+        command: >
+          {{ kubectl_path }} --kubeconfig {{ kubeconfig_path }}
+          get pods -n {{ argocd_namespace }}
+          -l app.kubernetes.io/name=argocd-server -o wide
+        register: pods_list
+      - debug:
+          var: pods_list.stdout_lines
 
-        - name: Listar pods
-          command: >
-            {{ kubectl_path }} --kubeconfig {{ kubeconfig_path }}
-            get pods -n {{ argocd_namespace }} -l app.kubernetes.io/name=argocd-server -o wide
-          register: pods_list
-
-        - debug:
-            var: pods_list.stdout_lines
-
-        - name: Eventos recientes
-          command: >
-            {{ kubectl_path }} --kubeconfig {{ kubeconfig_path }}
-            get events -n {{ argocd_namespace }} --sort-by=.metadata.creationTimestamp | tail -n 20
-          register: recent_events
-
-        - debug:
-            var: recent_events.stdout_lines
+      - name: Mostrar últimos eventos del namespace
+        command: >
+          {{ kubectl_path }} --kubeconfig {{ kubeconfig_path }}
+          get events -n {{ argocd_namespace }}
+          --sort-by=.metadata.creationTimestamp | tail -n 20
+        register: events
+      - debug:
+          var: events.stdout_lines
