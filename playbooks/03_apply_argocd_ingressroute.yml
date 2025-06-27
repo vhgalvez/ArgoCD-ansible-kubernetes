@@ -1,4 +1,4 @@
-# playbooks/02_apply_argocd_ingressroute.yml
+# playbooks/03_apply_argocd_ingressroute.yml
 # 🌐 Aplicar Middleware + IngressRoute protegida para ArgoCD con Traefik
 ---
 - name: 🌐 Aplicar IngressRoute interna protegida para ArgoCD (Traefik CRD)

@@ -8,10 +8,10 @@
   import_playbook: 01_generate-auth-secret.yml
 
 - name: 2 Instalar ArgoCD y Secret de admin personalizado
-  import_playbook: 03_install_argocd.yml
+  import_playbook: 02_install_argocd.yml
 
 - name: 3 Aplicar IngressRoute protegida para el Dashboard
-  import_playbook: 02_apply_argocd_ingressroute.yml
+  import_playbook: 03_apply_argocd_ingressroute.yml
 
 - name: 4 Verificar acceso al Dashboard (modo tolerante)
   hosts: localhost

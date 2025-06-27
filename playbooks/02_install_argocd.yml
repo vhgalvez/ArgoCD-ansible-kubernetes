@@ -1,4 +1,4 @@
-# playbooks/03_install_argocd.yml
+# playbooks/02_install_argocd.yml
 # 🚀 Instalar ArgoCD con contraseña personalizada desde .env (vía vars/main.yml)
 ---
 - name: 🚀 Instalar ArgoCD con contraseña personalizada
@@ -41,15 +41,21 @@
             admin.password: "{{ argocd_admin_password_b64 }}"
             admin.passwordMtime: "{{ lookup('pipe', 'date +%FT%TZ') | b64encode }}"
 
-    - name: 📄 Instalar / actualizar todos los CRDs de Traefik (bundle oficial v3.x)
+    - name: 📄 Instalar CRDs de Traefik (bundle oficial v3.4)
       kubernetes.core.k8s:
         state: present
-        src: https://raw.githubusercontent.com/traefik/traefik/v3.4.1/pkg/provider/kubernetes/crd/traefik-crd.yaml
+        src: https://raw.githubusercontent.com/traefik/traefik/v3.4/docs/content/reference/dynamic-configuration/kubernetes-crd-definition-v1.yml
         kubeconfig: "{{ kubeconfig_path }}"
       register: traefik_crds_result
       retries: 3
       delay: 5
       until: traefik_crds_result is succeeded
+
+    - name: 📄 Instalar RBAC para CRDs de Traefik (v3.4)
+      kubernetes.core.k8s:
+        state: present
+        src: https://raw.githubusercontent.com/traefik/traefik/v3.4/docs/content/reference/dynamic-configuration/kubernetes-crd-rbac.yml
+        kubeconfig: "{{ kubeconfig_path }}"
 
     - name: 📥 Aplicar manifiestos oficiales de ArgoCD (v2.11.2)
       kubernetes.core.k8s:
