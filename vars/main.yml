@@ -1,19 +1,12 @@
-# vars/main.yml
-
-argocd_auth_user: "{{ lookup('env', 'ARGOCD_AUTH_USER') }}"
-argocd_auth_pass: "{{ lookup('env', 'ARGOCD_AUTH_PASS') }}"
-
+# vars/main.yml -------------------------------------------------------
 argocd_namespace: argocd
-argocd_middleware_name: argocd-dashboard-auth
-argocd_secret_name: argocd-dashboard-auth
-tls_secret_name: wildcard-socialdevs-tls
-
+tls_secret_name: wildcard-socialdevs-tls          # nombre real del Secret TLS
 kubeconfig_path: "/home/victory/.kube/config"
 kubectl_path: "/usr/local/bin/kubectl"
 kubeseal_path: "/usr/local/bin/kubeseal"
-vip_kubernetes: "192.168.0.32"
-http_to_https_redirect: true
 
+# credenciales para el middleware de Traefik
+argocd_auth_user: "{{ lookup('env', 'ARGOCD_AUTH_USER') }}"
+argocd_auth_pass: "{{ lookup('env', 'ARGOCD_AUTH_PASS') }}"
 
-domain: argocd.socialdevs.site
-argocd_dashboard_domain: "{{ domain }}"
+argocd_dashboard_domain: "argocd.socialdevs.site"
