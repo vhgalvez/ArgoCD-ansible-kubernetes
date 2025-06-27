@@ -9,10 +9,19 @@
     - ../vars/main.yml
 
   pre_tasks:
+    - name: 📥 Leer archivo .env local
+      set_fact:
+        env_lines: "{{ lookup('file', '../.env').splitlines() }}"
+
+    - name: 📌 Cargar usuario y contraseña desde .env
+      set_fact:
+        _argocd_auth_user: "{{ (env_lines | select('match', '^ARGOCD_AUTH_USER=') | list).0.split('=')[1] }}"
+        _argocd_auth_pass: "{{ (env_lines | select('match', '^ARGOCD_AUTH_PASS=') | list).0.split('=')[1] }}"
+
     - name: ⚠️ Verificar que ARGOCD_AUTH_USER y PASS estén definidos
       fail:
-        msg: "❌ Faltan variables de entorno ARGOCD_AUTH_USER o ARGOCD_AUTH_PASS"
-      when: argocd_auth_user is not defined or argocd_auth_pass is not defined
+        msg: "❌ Faltan ARGOCD_AUTH_USER o ARGOCD_AUTH_PASS en .env"
+      when: _argocd_auth_user is not defined or _argocd_auth_pass is not defined
 
   tasks:
     - name: 🔐 Generar y aplicar Secret sellado de autenticación básica

@@ -77,4 +77,8 @@ kubectl get svc -n argocd
 kubectl get ingress -n argocd
 ```
 
+
+export ARGOCD_AUTH_USER=admin
+export ARGOCD_AUTH_PASS=SuperPassword123
+
 ¡Ahora tienes ArgoCD listo para gestionar tus aplicaciones mediante GitOps en Kubernetes!
