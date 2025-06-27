@@ -19,16 +19,69 @@
         _argocd_auth_user: "{{ (env_lines | select('match', '^ARGOCD_AUTH_USER=') | list).0.split('=')[1] }}"
         _argocd_auth_pass: "{{ (env_lines | select('match', '^ARGOCD_AUTH_PASS=') | list).0.split('=')[1] }}"
 
-    - name: ⚠️ Verificar que ARGOCD_AUTH_USER y PASS estén definidos
+    - name: 📋 Verificar que kubeseal esté instalado
+      stat:
+        path: "{{ kubeseal_path }}"
+      register: kubeseal_check
+
+    - name: ❌ Abortar si kubeseal no está instalado
       fail:
-        msg: "❌ Faltan ARGOCD_AUTH_USER o ARGOCD_AUTH_PASS en .env"
-      when: _argocd_auth_user is not defined or _argocd_auth_pass is not defined
+        msg: "❌ kubeseal no está instalado en {{ kubeseal_path }}. Por favor, instálalo."
+      when: not kubeseal_check.stat.exists
+
+    - name: ⚙️ Verificar que las variables de autenticación estén definidas
+      fail:
+        msg: "❌ ARGOCD_AUTH_USER y ARGOCD_AUTH_PASS deben estar definidos en .env"
+      when: _argocd_auth_user is not defined or _argocd_auth_user == "" or _argocd_auth_pass is not defined or _argocd_auth_pass == ""
+
+    - name: 🔑 Generar cadena básica con htpasswd (bcrypt)
+      shell: echo "{{ _argocd_auth_pass }}" | htpasswd -i -B -n "{{ _argocd_auth_user }}"
+      register: basic_auth_string
+      changed_when: false
+      no_log: true
+
+    - name: 🔐 Codificar "user:hash" en base64
+      set_fact:
+        basic_auth: "{{ basic_auth_string.stdout | b64encode }}"
+
+    - name: 📝 Renderizar plantilla del Secret sin sellar (unsealed)
+      template:
+        src: "../templates/secrets/basic-auth-secret.yaml.j2"
+        dest: "{{ playbook_dir }}/files/argocd-dashboard-secret-unsealed.yaml"
+      vars:
+        basic_auth: "{{ basic_auth }}"
+        namespace_tpl: "{{ argocd_namespace }}"
+        secret_name: "{{ argocd_secret_name }}"
+
+    - name: 🔐 Sellar el Secret de ArgoCD Dashboard con kubeseal
+      shell: >
+        {{ kubeseal_path }}
+        --controller-name sealed-secrets-controller
+        --controller-namespace kube-system
+        --format yaml
+        < {{ playbook_dir }}/files/argocd-dashboard-secret-unsealed.yaml
+        > {{ playbook_dir }}/files/argocd-dashboard-sealed.yaml
+      environment:
+        KUBECONFIG: "{{ kubeconfig_path }}"
+      changed_when: true
+
+    - name: 🗑️ Eliminar el Secret sin sellar
+      file:
+        path: "{{ playbook_dir }}/files/argocd-dashboard-secret-unsealed.yaml"
+        state: absent
+      changed_when: false
+
+    - name: 🚀 Aplicar SealedSecret para ArgoCD Dashboard
+      command: >
+        {{ kubectl_path }} --kubeconfig {{ kubeconfig_path }}
+        apply -f {{ playbook_dir }}/files/argocd-dashboard-sealed.yaml
+      register: apply_sealed_secret_result
+      changed_when: "'created' in apply_sealed_secret_result.stdout or 'configured' in apply_sealed_secret_result.stdout"
+      environment:
+        KUBECONFIG: "{{ kubeconfig_path }}"
 
   tasks:
-    - name: 🔐 Generar y aplicar Secret sellado de autenticación básica
-      include_tasks: 01_generate-auth-secret.yml
-
-    - name: 📦 Instalar ArgoCD con manifiestos y configurar contraseña
+    - name: 📦 Instalar ArgoCD con manifiestos y Ingress básico
       include_tasks: 03_install_argocd.yml
 
     - name: 🌐 Aplicar IngressRoute con autenticación (Traefik CRD)
