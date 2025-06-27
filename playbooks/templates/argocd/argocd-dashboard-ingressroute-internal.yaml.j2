@@ -17,12 +17,12 @@ spec:
   routes:
     - match: Host(`{{ argocd_dashboard_domain }}`) && PathPrefix(`/`)
       kind: Rule
+      middlewares:
+        - name: {{ argocd_middleware_name }}
+          namespace: {{ argocd_namespace }}
       services:
         - name: argocd-server
           port: 80
           scheme: http
-      middlewares:
-        - name: {{ argocd_middleware_name }}
-          namespace: {{ argocd_namespace }}
   tls:
-    secretName: wildcard-socialdevs-tls
+    secretName: {{ tls_secret_name }}          # ✔ existe en argocd

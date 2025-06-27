@@ -1,43 +1,46 @@
-# playbooks/deploy_argocd_full.yml
-# 🔧 Playbook maestro para desplegar ArgoCD completo
-# Ejecuta en orden:
-# ❶ Generar SealedSecret de autenticación básica
-# ❷ Instalar ArgoCD con contraseña admin
-# ❸ Aplicar IngressRoute protegida
-# ❹ Verificar acceso al Dashboard
-
-- import_playbook: 01_generate-auth-secret.yml
-- import_playbook: 03_install_argocd.yml
-- import_playbook: 02_apply_argocd_ingressroute.yml
-
-- name: 🌐 Verificar acceso al Dashboard de ArgoCD (modo tolerante)
+# playbooks/deploy_argocd_full.yml -----------------------------------
+# 📦 Instalación completa de ArgoCD con seguridad y exposición
+- name: 📦 Instalación completa de ArgoCD con seguridad y exposición
   hosts: localhost
   gather_facts: false
-  become: false
+  vars_files:
+    - ../vars/main.yml
 
+  pre_tasks:
+    - name: ✅ Validar que kubeconfig esté definido
+      assert:
+        that: kubeconfig_path is defined
+        msg: "❌ kubeconfig_path no definido"
+
+# 0️⃣ Copiar Secret TLS (wildcard-socialdevs-tls)
+- import_playbook: playbooks/00_copy_tls_secret.yml
+
+# 1️⃣ Generar SealedSecret para autenticación Dashboard
+- import_playbook: playbooks/01_generate-auth-secret.yml
+
+# 2️⃣ Instalar ArgoCD y Secret de admin personalizado
+- import_playbook: playbooks/03_install_argocd.yml
+
+# 3️⃣ Aplicar IngressRoute protegida para el Dashboard
+- import_playbook: playbooks/02_apply_argocd_ingressroute.yml
+
+# 4️⃣ Verificar acceso al Dashboard (modo tolerante)
+- name: 🌐 Verificar acceso al Dashboard (tolerante)
+  hosts: localhost
+  gather_facts: false
   vars_files:
     - ../vars/main.yml
 
   tasks:
-    - name: 🌐 Verificar acceso al Dashboard
+    - name: 🌐 Comprobar acceso al Dashboard
       shell: >
         curl --http1.1 -k -u {{ argocd_auth_user }}:{{ argocd_auth_pass }}
         https://{{ argocd_dashboard_domain }}/
         --max-time 10 --silent --output /dev/null --write-out '%{http_code}'
-      environment:
-        KUBECONFIG: "{{ kubeconfig_path }}"
-      register: dashboard_access_check
-      failed_when: >
-        dashboard_access_check.stdout is defined and
-        dashboard_access_check.stdout not in ["200", "302", "401"]
+      register: dashboard_status
       changed_when: false
-      ignore_errors: false
+      failed_when: dashboard_status.stdout not in ['200','302','401']
 
-    - name: 🛠️ Depuración de acceso al dashboard
+    - name: 🧪 Mostrar resultado HTTP
       debug:
-        msg: "Código HTTP recibido del dashboard: {{ dashboard_access_check.stdout }}"
-
-    - name: ❌ Fallar si no se puede acceder al dashboard
-      fail:
-        msg: "El acceso al dashboard falló. Código HTTP: {{ dashboard_access_check.stdout }}"
-      when: dashboard_access_check.stdout not in ["200", "302", "401"]
+        msg: "🌐 Código HTTP recibido: {{ dashboard_status.stdout }}"

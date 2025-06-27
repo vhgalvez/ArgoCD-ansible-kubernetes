@@ -1,12 +1,24 @@
 # vars/main.yml -------------------------------------------------------
+# 📁 vars/main.yml — Configuración principal del despliegue de ArgoCD
+
+# 🗂️ Namespace donde se despliega ArgoCD
 argocd_namespace: argocd
-tls_secret_name: wildcard-socialdevs-tls          # nombre real del Secret TLS
+
+# 🌐 Dominio para acceso externo
+argocd_dashboard_domain: "argocd.socialdevs.site"
+ingress_host: "argocd.cefaslocalserver.com"  # ← Úsalo solo si es diferente
+
+# 🔐 Secret TLS compartido y su nombre
+tls_secret_name: wildcard-socialdevs-tls
+
+# 🔐 Configuración de autenticación básica para el middleware Traefik
+argocd_auth_user: "{{ lookup('env', 'ARGOCD_AUTH_USER') }}"
+argocd_auth_pass: "{{ lookup('env', 'ARGOCD_AUTH_PASS') }}"
+
+# ⚙️ Ruta del kubeconfig y herramientas
 kubeconfig_path: "/home/victory/.kube/config"
 kubectl_path: "/usr/local/bin/kubectl"
 kubeseal_path: "/usr/local/bin/kubeseal"
 
-# credenciales para el middleware de Traefik
-argocd_auth_user: "{{ lookup('env', 'ARGOCD_AUTH_USER') }}"
-argocd_auth_pass: "{{ lookup('env', 'ARGOCD_AUTH_PASS') }}"
-
-argocd_dashboard_domain: "argocd.socialdevs.site"
+# 📦 Helm Chart y credenciales del admin
+argocd_chart_version: "5.51.6"  # Versión estable del Chart
