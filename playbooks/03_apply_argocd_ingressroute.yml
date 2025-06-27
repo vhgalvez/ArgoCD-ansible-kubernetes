@@ -17,19 +17,22 @@
 
   tasks:
     # ------------------------------------------------------------------ #
-    # 0) Esperar a que el Service argocd-server exista ------------------ #
+    # 0) Esperar a que el Deployment argocd-server esté disponible ------ #
     # ------------------------------------------------------------------ #
-    - name: ⏳ Esperar hasta que argocd-server Service exista
+    - name: ⏳ Esperar a que el Deployment argocd-server esté disponible
       kubernetes.core.k8s_info:
-        api_version: v1
-        kind: Service
-        namespace: "{{ argocd_namespace }}"
+        api_version: apps/v1
+        kind: Deployment
         name: argocd-server
+        namespace: "{{ argocd_namespace }}"
         kubeconfig: "{{ kubeconfig_path }}"
-      register: svc_check
-      retries: 12          # 12×5 s ≈ 1 min
-      delay: 5
-      until: svc_check.resources | length > 0
+      register: deploy_info
+      until: >
+        deploy_info.resources
+        and deploy_info.resources[0].status.availableReplicas is defined
+        and deploy_info.resources[0].status.availableReplicas | int > 0
+      retries: 30          # 30×10 s ≈ 5 min
+      delay: 10
 
     # ------------------------------------------------------------------ #
     # 1) Middleware ----------------------------------------------------- #
