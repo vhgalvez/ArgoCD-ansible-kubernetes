@@ -55,5 +55,5 @@
       kubernetes.core.k8s:
         state: present
         namespace: "{{ argocd_namespace }}"
-        src: https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+        src: https://raw.githubusercontent.com/traefik/traefik/v3.4.1/pkg/provider/kubernetes/crd/traefik-crd.yaml
         kubeconfig: "{{ kubeconfig_path }}"
