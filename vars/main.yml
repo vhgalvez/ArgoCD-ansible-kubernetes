@@ -4,7 +4,6 @@ argocd_auth_user: "{{ lookup('env', 'ARGOCD_AUTH_USER') }}"
 argocd_auth_pass: "{{ lookup('env', 'ARGOCD_AUTH_PASS') }}"
 
 argocd_namespace: argocd
-argocd_dashboard_domain: argocd.socialdevs.site
 argocd_middleware_name: argocd-dashboard-auth
 argocd_secret_name: argocd-dashboard-auth
 tls_secret_name: wildcard-socialdevs-tls
