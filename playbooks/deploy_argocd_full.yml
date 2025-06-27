@@ -1,38 +1,31 @@
 # playbooks/deploy_argocd_full.yml -----------------------------------
-# 📦 Instalación completa de ArgoCD con seguridad y exposición
-- name: 📦 Instalación completa de ArgoCD con seguridad y exposición
-  hosts: localhost
-  gather_facts: false
-  vars_files:
-    - ../vars/main.yml
+# Instalación completa de ArgoCD con seguridad y exposición
 
-  pre_tasks:
-    - name: ✅ Validar que kubeconfig esté definido
-      assert:
-        that: kubeconfig_path is defined
-        msg: "❌ kubeconfig_path no definido"
+- name: 0 Copiar Secret TLS (wildcard-socialdevs-tls)
+  import_playbook: 00_copy_tls_secret.yml
 
-# 0️⃣ Copiar Secret TLS (wildcard-socialdevs-tls)
-- import_playbook: playbooks/00_copy_tls_secret.yml
+- name: 1 Generar SealedSecret para autenticación Dashboard
+  import_playbook: 01_generate-auth-secret.yml
 
-# 1️⃣ Generar SealedSecret para autenticación Dashboard
-- import_playbook: playbooks/01_generate-auth-secret.yml
+- name: 2 Instalar ArgoCD y Secret de admin personalizado
+  import_playbook: 03_install_argocd.yml
 
-# 2️⃣ Instalar ArgoCD y Secret de admin personalizado
-- import_playbook: playbooks/03_install_argocd.yml
+- name: 3 Aplicar IngressRoute protegida para el Dashboard
+  import_playbook: 02_apply_argocd_ingressroute.yml
 
-# 3️⃣ Aplicar IngressRoute protegida para el Dashboard
-- import_playbook: playbooks/02_apply_argocd_ingressroute.yml
-
-# 4️⃣ Verificar acceso al Dashboard (modo tolerante)
-- name: 🌐 Verificar acceso al Dashboard (tolerante)
+- name: 4 Verificar acceso al Dashboard (modo tolerante)
   hosts: localhost
   gather_facts: false
   vars_files:
     - ../vars/main.yml
 
   tasks:
-    - name: 🌐 Comprobar acceso al Dashboard
+    - name: Validar que kubeconfig esté definido
+      assert:
+        that: kubeconfig_path is defined
+        msg: "kubeconfig_path no definido"
+
+    - name: Comprobar acceso al Dashboard
       shell: >
         curl --http1.1 -k -u {{ argocd_auth_user }}:{{ argocd_auth_pass }}
         https://{{ argocd_dashboard_domain }}/
@@ -41,6 +34,6 @@
       changed_when: false
       failed_when: dashboard_status.stdout not in ['200','302','401']
 
-    - name: 🧪 Mostrar resultado HTTP
+    - name: Mostrar resultado HTTP
       debug:
-        msg: "🌐 Código HTTP recibido: {{ dashboard_status.stdout }}"
+        msg: "Código HTTP recibido: {{ dashboard_status.stdout }}"
