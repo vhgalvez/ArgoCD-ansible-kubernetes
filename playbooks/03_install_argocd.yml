@@ -41,6 +41,17 @@
             admin.password: "{{ argocd_admin_password_b64 }}"
             admin.passwordMtime: "{{ lookup('pipe', 'date +%FT%TZ') | b64encode }}"
 
+    # ✅ Instalar todos los CRDs requeridos por Traefik v3.x (Middleware, IngressRoute, TLSStore, etc.)
+    - name: 📄 Instalar CRDs de Traefik (bundle oficial v3.x)
+      kubernetes.core.k8s:
+        state: present
+        src: "{{ traefik_crds_url }}"
+        kubeconfig: "{{ kubeconfig_path }}"
+      register: traefik_crds_result
+      retries: 3
+      delay: 5
+      until: traefik_crds_result is succeeded
+
     - name: 📥 Aplicar manifiestos oficiales de ArgoCD
       kubernetes.core.k8s:
         state: present

@@ -28,3 +28,5 @@ kubeseal_path: "/usr/local/bin/kubeseal"
 
 # Helm Chart y versión del administrador
 argocd_chart_version: "5.51.6"  # Versión estable
+
+traefik_crds_url: "https://doc.traefik.io/traefik/v3.0/assets/data/traefik-crds.yaml"
