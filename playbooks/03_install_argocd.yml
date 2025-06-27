@@ -1,38 +1,45 @@
 # playbooks/03_install_argocd.yml
+---
+- name: 🚀 Instalar ArgoCD con contraseña personalizada
+  hosts: localhost
+  gather_facts: false
 
-- name: 🔐 Generar contraseña base64 para ArgoCD
-  set_fact:
-    argocd_admin_password_b64: "{{ argocd_admin_password | b64encode }}"
+  vars_files:
+    - ../vars/main.yml            # ← para kubeconfig y namespace
+  vars:
+    # 🔐 La contraseña de admin será la misma que definiste en .env
+    argocd_admin_password_b64: "{{ argocd_auth_pass | b64encode }}"
 
-- name: 📦 Crear namespace para ArgoCD
-  kubernetes.core.k8s:
-    name: "{{ argocd_namespace }}"
-    api_version: v1
-    kind: Namespace
-    state: present
-    kubeconfig: "{{ kubeconfig_path }}"
+  tasks:
+    - name: 📦 Asegurar namespace de ArgoCD
+      kubernetes.core.k8s:
+        api_version: v1
+        kind: Namespace
+        name: "{{ argocd_namespace }}"
+        state: present
+        kubeconfig: "{{ kubeconfig_path }}"
 
-- name: 🔑 Crear Secret con contraseña personalizada
-  kubernetes.core.k8s:
-    state: present
-    namespace: "{{ argocd_namespace }}"
-    kubeconfig: "{{ kubeconfig_path }}"
-    definition:
-      apiVersion: v1
-      kind: Secret
-      metadata:
-        name: argocd-secret
-        labels:
-          app.kubernetes.io/name: argocd-secret
-          app.kubernetes.io/part-of: argocd
-      type: Opaque
-      data:
-        admin.password: "{{ argocd_admin_password_b64 }}"
-        admin.passwordMtime: "{{ lookup('pipe', 'date +%FT%T%Z') | b64encode }}"
+    - name: 🔑 Secret con contraseña de administrador
+      kubernetes.core.k8s:
+        state: present
+        namespace: "{{ argocd_namespace }}"
+        kubeconfig: "{{ kubeconfig_path }}"
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: argocd-secret
+            labels:
+              app.kubernetes.io/name: argocd-secret
+              app.kubernetes.io/part-of: argocd
+          type: Opaque
+          data:
+            admin.password: "{{ argocd_admin_password_b64 }}"
+            admin.passwordMtime: "{{ lookup('pipe', 'date +%FT%TZ') | b64encode }}"
 
-- name: 📥 Desplegar manifiestos oficiales de ArgoCD
-  kubernetes.core.k8s:
-    state: present
-    namespace: "{{ argocd_namespace }}"
-    src: https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-    kubeconfig: "{{ kubeconfig_path }}"
+    - name: 📥 Instalar manifiestos oficiales de ArgoCD
+      kubernetes.core.k8s:
+        state: present
+        namespace: "{{ argocd_namespace }}"
+        src: https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+        kubeconfig: "{{ kubeconfig_path }}"

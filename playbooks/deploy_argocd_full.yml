@@ -7,17 +7,20 @@
   become: false
 
   vars_files:
-    - ../vars/main.yml
+    - ../vars/main.yml            # contiene kubeconfig, namespace, etc.
 
+  #######################################################################
+  # ░░░░░░  PRE-TAREAS: leer .env y generar Secret sellado  ░░░░░░░░░░░░░
+  #######################################################################
   pre_tasks:
     - name: 📥 Leer archivo .env local
       set_fact:
         env_lines: "{{ lookup('file', '../.env').splitlines() }}"
 
-    - name: 📌 Cargar usuario y contraseña desde .env
+    - name: 📌 Cargar usuario / contraseña de .env **y exponerlos a todo el play**
       set_fact:
-        _argocd_auth_user: "{{ (env_lines | select('match', '^ARGOCD_AUTH_USER=') | list).0.split('=')[1] }}"
-        _argocd_auth_pass: "{{ (env_lines | select('match', '^ARGOCD_AUTH_PASS=') | list).0.split('=')[1] }}"
+        argocd_auth_user: "{{ (env_lines | select('match', '^ARGOCD_AUTH_USER=') | list).0.split('=')[1] }}"
+        argocd_auth_pass: "{{ (env_lines | select('match', '^ARGOCD_AUTH_PASS=') | list).0.split('=')[1] }}"
 
     - name: 📋 Verificar que kubeseal esté instalado
       stat:
@@ -26,85 +29,68 @@
 
     - name: ❌ Abortar si kubeseal no está instalado
       fail:
-        msg: "❌ kubeseal no está instalado en {{ kubeseal_path }}. Por favor, instálalo."
+        msg: "❌ kubeseal no está instalado en {{ kubeseal_path }}."
       when: not kubeseal_check.stat.exists
 
-    - name: ⚙️ Verificar que las variables de autenticación estén definidas
+    - name: ⚙️ Verificar que usuario/contraseña están definidos
       fail:
-        msg: "❌ ARGOCD_AUTH_USER y ARGOCD_AUTH_PASS deben estar definidos en el archivo .env"
-      when: _argocd_auth_user is not defined or _argocd_auth_user == "" or _argocd_auth_pass is not defined or _argocd_auth_pass == ""
+        msg: "❌ ARGOCD_AUTH_USER o ARGOCD_AUTH_PASS faltan en .env"
+      when: argocd_auth_user == '' or argocd_auth_pass == ''
 
-    - name: 🔑 Generar cadena básica con htpasswd (bcrypt)
-      shell: echo "{{ _argocd_auth_pass }}" | htpasswd -i -B -n "{{ _argocd_auth_user }}"
+    # ------------------------------------------------------------------
+    # ❶ Generar el Secret (unsealed) ❷ sellarlo ❸ aplicarlo al clúster
+    # ------------------------------------------------------------------
+    - name: 🔑 Generar hash htpasswd (bcrypt) y codificarlo en base-64
+      shell: echo "{{ argocd_auth_pass }}" | htpasswd -i -B -n "{{ argocd_auth_user }}"
       register: basic_auth_string
       changed_when: false
       no_log: true
 
-    - name: 🔐 Codificar "user:hash" en base64
-      set_fact:
-        basic_auth: "{{ basic_auth_string.stdout | b64encode }}"
-
-    - name: 📁 Crear directorio para archivos renderizados (playbooks/files)
-      file:
-        path: "{{ playbook_dir }}/files"
-        state: directory
-        mode: '0755'
-
-    - name: 📝 Renderizar plantilla del Secret sin sellar (unsealed)
+    - name: 📝 Renderizar Secret sin sellar
       template:
         src: "../templates/secrets/basic-auth-secret.yaml.j2"
-        dest: "{{ playbook_dir }}/files/argocd-dashboard-secret-unsealed.yaml"
+        dest: "{{ playbook_dir }}/files/argocd-secret-unsealed.yaml"
       vars:
-        basic_auth: "{{ basic_auth }}"
+        basic_auth: "{{ basic_auth_string.stdout | b64encode }}"
         namespace_tpl: "{{ argocd_namespace }}"
         secret_name: "{{ argocd_secret_name }}"
 
-    - name: 🔐 Sellar el Secret de ArgoCD Dashboard con kubeseal
+    - name: 🔐 Sellar el Secret con kubeseal
       shell: >
-        {{ kubeseal_path }}
-        --controller-name sealed-secrets-controller
-        --controller-namespace kube-system
-        --format yaml
-        < {{ playbook_dir }}/files/argocd-dashboard-secret-unsealed.yaml
-        > {{ playbook_dir }}/files/argocd-dashboard-sealed.yaml
-      environment:
-        KUBECONFIG: "{{ kubeconfig_path }}"
-      changed_when: true
+        {{ kubeseal_path }} --controller-name sealed-secrets-controller
+        --controller-namespace kube-system --format yaml
+        < {{ playbook_dir }}/files/argocd-secret-unsealed.yaml
+        > {{ playbook_dir }}/files/argocd-secret-sealed.yaml
+      environment: { KUBECONFIG: "{{ kubeconfig_path }}" }
 
-    - name: 🗑️ Eliminar el Secret sin sellar
-      file:
-        path: "{{ playbook_dir }}/files/argocd-dashboard-secret-unsealed.yaml"
-        state: absent
-      changed_when: false
-
-    - name: 🚀 Aplicar SealedSecret para ArgoCD Dashboard
+    - name: 🚀 Aplicar SealedSecret
       command: >
         {{ kubectl_path }} --kubeconfig {{ kubeconfig_path }}
-        apply -f {{ playbook_dir }}/files/argocd-dashboard-sealed.yaml
-      register: apply_sealed_secret_result
-      changed_when: "'created' in apply_sealed_secret_result.stdout or 'configured' in apply_sealed_secret_result.stdout"
-      environment:
-        KUBECONFIG: "{{ kubeconfig_path }}"
+        apply -f {{ playbook_dir }}/files/argocd-secret-sealed.yaml
+      register: secret_apply
+      changed_when: "'created' in secret_apply.stdout or 'configured' in secret_apply.stdout"
 
+  #######################################################################
+  # ░░░░░░  TAREAS PRINCIPALES: instalar ArgoCD e IngressRoute  ░░░░░░░░░
+  #######################################################################
   tasks:
-    - name: 📦 Instalar ArgoCD con manifiestos y Ingress básico
-      include_tasks: 03_install_argocd.yml
+    - name: 📦 Instalar ArgoCD (chart + namespace + secret admin)
+      import_playbook: 03_install_argocd.yml    # ← ahora se importa como playbook
 
-    - name: 🌐 Aplicar IngressRoute con autenticación (Traefik CRD)
-      include_tasks: 02_apply_argocd_ingressroute.yml
+    - name: 🌐 Crear IngressRoute con autenticación (Traefik CRD)
+      import_playbook: 02_apply_argocd_ingressroute.yml
 
-    - name: ⏱️ Esperar a que el pod de argocd-server esté listo
+    - name: ⏱️ Esperar a que el pod argocd-server esté «Running»
       kubernetes.core.k8s_info:
         api_version: v1
         kind: Pod
         namespace: "{{ argocd_namespace }}"
-        label_selectors:
-          - "app.kubernetes.io/name=argocd-server"
-      register: argocd_pods
-      until: argocd_pods.resources | selectattr('status.phase', 'equalto', 'Running') | list | length > 0
+        label_selectors: ["app.kubernetes.io/name=argocd-server"]
+      register: pods
       retries: 20
       delay: 10
+      until: pods.resources | selectattr('status.phase', 'equalto', 'Running') | list | length > 0
 
-    - name: ✅ Mostrar acceso web
+    - name: ✅ URL final
       debug:
-        msg: "✅ ArgoCD disponible en: https://{{ argocd_dashboard_domain }}"
+        msg: "✅ ArgoCD listo en https://{{ argocd_dashboard_domain }}"

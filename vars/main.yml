@@ -1,7 +1,7 @@
 # vars/main.yml
 
-argocd_auth_user: "{{ _argocd_auth_user }}"
-argocd_auth_pass: "{{ _argocd_auth_pass }}"
+argocd_auth_user: "{{ lookup('env', 'ARGOCD_AUTH_USER') }}"
+argocd_auth_pass: "{{ lookup('env', 'ARGOCD_AUTH_PASS') }}"
 
 argocd_namespace: argocd
 argocd_dashboard_domain: argocd.socialdevs.site
@@ -14,3 +14,5 @@ kubectl_path: "/usr/local/bin/kubectl"
 kubeseal_path: "/usr/local/bin/kubeseal"
 vip_kubernetes: "192.168.0.32"
 http_to_https_redirect: true
+
+
