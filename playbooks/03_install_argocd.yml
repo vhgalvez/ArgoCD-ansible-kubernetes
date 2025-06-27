@@ -1,6 +1,6 @@
 # playbooks/03_install_argocd.yml
 ---
-- name: 🚀 Instalar ArgoCD con Ingress y contraseña personalizada
+- name: 🚀 Instalar ArgoCD con contraseña personalizada
   hosts: localhost
   connection: local
   gather_facts: false
@@ -36,7 +36,7 @@
               app.kubernetes.io/part-of: argocd
           type: Opaque
           data:
-            admin.password: "{{ argocd_admin_password_b64.stdout }}"
+            admin.password: "{{ argocd_admin_password_b64 }}"
             admin.passwordMtime: "{{ lookup('pipe', 'date +%FT%T%Z') | b64encode }}"
 
     - name: 📥 Desplegar manifiestos oficiales de ArgoCD
@@ -45,34 +45,3 @@
         namespace: "{{ argocd_namespace }}"
         src: https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
         kubeconfig: "{{ kubeconfig_path }}"
-
-    - name: 🌐 Crear Ingress HTTPs para acceso externo con Traefik
-      kubernetes.core.k8s:
-        state: present
-        namespace: "{{ argocd_namespace }}"
-        kubeconfig: "{{ kubeconfig_path }}"
-        definition:
-          apiVersion: networking.k8s.io/v1
-          kind: Ingress
-          metadata:
-            name: argocd-ingress
-            annotations:
-              kubernetes.io/ingress.class: traefik
-              traefik.ingress.kubernetes.io/router.entrypoints: websecure
-              traefik.ingress.kubernetes.io/router.tls: "true"
-          spec:
-            rules:
-              - host: "{{ argocd_dashboard_domain }}"
-                http:
-                  paths:
-                    - path: /
-                      pathType: Prefix
-                      backend:
-                        service:
-                          name: argocd-server
-                          port:
-                            number: 80
-            tls:
-              - hosts:
-                  - "{{ argocd_dashboard_domain }}"
-                secretName: "{{ tls_secret_name }}"
