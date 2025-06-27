@@ -3,6 +3,7 @@
 - name: 🌐 Aplicar IngressRoute interna para ArgoCD (Traefik CRD)
   hosts: localhost
   gather_facts: false
+  become: false
 
   vars_files:
     - ../vars/main.yml
@@ -18,14 +19,14 @@
         dest: "{{ rendered_manifest }}"
 
     - name: 🚀 Aplicar IngressRoute al clúster
-      ansible.builtin.command:
-        cmd: "{{ kubectl_path }} --kubeconfig {{ kubeconfig_path }} apply -f {{ rendered_manifest }}"
-      register: apply_ingressroute_result
-      changed_when: "'created' in apply_ingressroute_result.stdout or 'configured' in apply_ingressroute_result.stdout"
+      command: >
+        {{ kubectl_path }} --kubeconfig {{ kubeconfig_path }} apply -f {{ rendered_manifest }}
+      register: result
+      changed_when: "'created' in result.stdout or 'configured' in result.stdout"
       environment:
         KUBECONFIG: "{{ kubeconfig_path }}"
 
-    - name: 🧹 Eliminar manifiesto renderizado
+    - name: 🧹 Borrar manifiesto temporal
       file:
         path: "{{ rendered_manifest }}"
         state: absent

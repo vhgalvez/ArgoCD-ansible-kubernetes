@@ -1,7 +1,7 @@
----
 # playbooks/03_install_argocd.yml
 # 🚀 Instalar ArgoCD con contraseña personalizada desde .env (via vars/main.yml)
 
+---
 - name: 🚀 Instalar ArgoCD con contraseña personalizada
   hosts: localhost
   gather_facts: false
