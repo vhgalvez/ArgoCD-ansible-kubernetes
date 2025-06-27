@@ -1,5 +1,5 @@
 # playbooks/02_install_argocd.yml
-# 🚀 Instalar ArgoCD con contraseña personalizada desde .env (vía vars/main.yml)
+# 🚀 Instalar ArgoCD + CRDs Traefik + reinicio Traefik
 ---
 - name: 🚀 Instalar ArgoCD con contraseña personalizada
   hosts: localhost
@@ -10,6 +10,9 @@
     - ../vars/main.yml
 
   tasks:
+    # ------------------------------------------------------------------ #
+    # 1) Secret de admin ------------------------------------------------ #
+    # ------------------------------------------------------------------ #
     - name: 🔐 Codificar contraseña admin en base64
       set_fact:
         argocd_admin_password_b64: "{{ argocd_auth_pass | b64encode }}"
@@ -27,7 +30,6 @@
         state: present
         namespace: "{{ argocd_namespace }}"
         kubeconfig: "{{ kubeconfig_path }}"
-        force: true
         definition:
           apiVersion: v1
           kind: Secret
@@ -41,6 +43,9 @@
             admin.password: "{{ argocd_admin_password_b64 }}"
             admin.passwordMtime: "{{ lookup('pipe', 'date +%FT%TZ') | b64encode }}"
 
+    # ------------------------------------------------------------------ #
+    # 2) CRDs + RBAC de Traefik 3.4 ------------------------------------ #
+    # ------------------------------------------------------------------ #
     - name: 📄 Instalar CRDs de Traefik (bundle oficial v3.4)
       kubernetes.core.k8s:
         state: present
@@ -57,6 +62,43 @@
         src: https://raw.githubusercontent.com/traefik/traefik/v3.4/docs/content/reference/dynamic-configuration/kubernetes-crd-rbac.yml
         kubeconfig: "{{ kubeconfig_path }}"
 
+    # ------------------------------------------------------------------ #
+    # 3) Reiniciar Traefik para que registre los nuevos CRDs ------------ #
+    # ------------------------------------------------------------------ #
+    - name: 🔄 Reiniciar Deployment de Traefik para que registre los CRDs
+      kubernetes.core.k8s:
+        api_version: apps/v1
+        kind: Deployment
+        name: traefik
+        namespace: kube-system
+        kubeconfig: "{{ kubeconfig_path }}"
+        definition:
+          spec:
+            template:
+              metadata:
+                annotations:
+                  reload-timestamp: "{{ lookup('pipe','date +%s') }}"
+      register: traefik_rollout
+
+    # Esperar a que el rollout termine (opcional pero recomendable)
+    - name: ⏳ Esperar a que Traefik vuelva a estar listo
+      kubernetes.core.k8s_info:
+        api_version: apps/v1
+        kind: Deployment
+        name: traefik
+        namespace: kube-system
+        kubeconfig: "{{ kubeconfig_path }}"
+      register: traefik_status
+      retries: 20
+      delay: 6
+      until: >
+        traefik_status.resources[0].status.readyReplicas is defined and
+        traefik_status.resources[0].status.readyReplicas |
+        int == traefik_status.resources[0].status.replicas | int
+
+    # ------------------------------------------------------------------ #
+    # 4) Instalar ArgoCD (manifiesto oficial v2.11.2) ------------------- #
+    # ------------------------------------------------------------------ #
     - name: 📥 Aplicar manifiestos oficiales de ArgoCD (v2.11.2)
       kubernetes.core.k8s:
         state: present

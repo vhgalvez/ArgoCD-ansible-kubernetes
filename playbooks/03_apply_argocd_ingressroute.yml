@@ -1,5 +1,5 @@
 # playbooks/03_apply_argocd_ingressroute.yml
-# 🌐 Aplicar Middleware + IngressRoute protegida para ArgoCD con Traefik
+# 🌐 Middleware + IngressRoute para ArgoCD
 ---
 - name: 🌐 Aplicar IngressRoute interna protegida para ArgoCD (Traefik CRD)
   hosts: localhost
@@ -16,8 +16,24 @@
     ir_manifest: "{{ playbook_dir }}/files/argocd-dashboard-ingressroute.yaml"
 
   tasks:
+    # ------------------------------------------------------------------ #
+    # 0) Esperar a que el Service argocd-server exista ------------------ #
+    # ------------------------------------------------------------------ #
+    - name: ⏳ Esperar hasta que argocd-server Service exista
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Service
+        namespace: "{{ argocd_namespace }}"
+        name: argocd-server
+        kubeconfig: "{{ kubeconfig_path }}"
+      register: svc_check
+      retries: 12          # 12×5 s ≈ 1 min
+      delay: 5
+      until: svc_check.resources | length > 0
 
-    # ➊ ───────────────── Middleware ─────────────────────────────────────────
+    # ------------------------------------------------------------------ #
+    # 1) Middleware ----------------------------------------------------- #
+    # ------------------------------------------------------------------ #
     - name: 📄 Renderizar plantilla del Middleware (basic-auth)
       template:
         src: "{{ mw_template }}"
@@ -28,10 +44,10 @@
         {{ kubectl_path }} --kubeconfig {{ kubeconfig_path }} apply -f {{ mw_manifest }}
       register: mw_result
       changed_when: "'created' in mw_result.stdout or 'configured' in mw_result.stdout"
-      environment:
-        KUBECONFIG: "{{ kubeconfig_path }}"
 
-    # ➋ ───────────────── IngressRoute ───────────────────────────────────────
+    # ------------------------------------------------------------------ #
+    # 2) IngressRoute --------------------------------------------------- #
+    # ------------------------------------------------------------------ #
     - name: 📄 Renderizar plantilla del IngressRoute
       template:
         src: "{{ ir_template }}"
@@ -42,10 +58,10 @@
         {{ kubectl_path }} --kubeconfig {{ kubeconfig_path }} apply -f {{ ir_manifest }}
       register: ir_result
       changed_when: "'created' in ir_result.stdout or 'configured' in ir_result.stdout"
-      environment:
-        KUBECONFIG: "{{ kubeconfig_path }}"
 
-    # ➌ ───────────────── Limpieza ───────────────────────────────────────────
+    # ------------------------------------------------------------------ #
+    # 3) Limpieza ------------------------------------------------------- #
+    # ------------------------------------------------------------------ #
     - name: 🧹 Borrar manifiestos temporales
       file:
         path: "{{ item }}"
