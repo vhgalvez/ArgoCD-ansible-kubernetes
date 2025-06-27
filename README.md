@@ -83,3 +83,11 @@ export ARGOCD_AUTH_PASS="SuperPassword123"
 
 
 ¡Ahora tienes ArgoCD listo para gestionar tus aplicaciones mediante GitOps en Kubernetes!
+
+
+# 1. Exportar credenciales de acceso al Dashboard
+export ARGOCD_AUTH_USER="admin"
+export ARGOCD_AUTH_PASS="SuperPassword123"
+
+# 2. Ejecutar el playbook maestro con variables heredadas
+sudo -E ansible-playbook -i inventory/hosts.ini playbooks/deploy_argocd_full.yml
