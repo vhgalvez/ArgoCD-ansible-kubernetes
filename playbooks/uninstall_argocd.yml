@@ -1,11 +1,9 @@
 # playbooks/uninstall_argocd.yml
-# 🧹 Desinstalar completamente ArgoCD, su autenticación y el namespace
 ---
 - name: 🧹 Desinstalar ArgoCD y sus recursos relacionados
   hosts: localhost
   connection: local
   gather_facts: false
-  become: false
 
   vars_files:
     - ../vars/main.yml
@@ -14,7 +12,6 @@
     KUBECONFIG: "{{ kubeconfig_path }}"
 
   tasks:
-
     - name: 🧽 Eliminar IngressRoute de ArgoCD
       kubernetes.core.k8s:
         state: absent
@@ -31,7 +28,7 @@
         state: absent
         kubeconfig: "{{ kubeconfig_path }}"
         definition:
-          apiVersion: traefik.containo.us/v1alpha1
+          apiVersion: traefik.io/v1alpha1
           kind: Middleware
           metadata:
             name: "{{ argocd_middleware_name }}"
@@ -48,7 +45,7 @@
             name: "{{ argocd_secret_name }}"
             namespace: "{{ argocd_namespace }}"
 
-    - name: 🧽 Eliminar Secret plano (admin.password)
+    - name: 🧽 Eliminar Secret personalizado (si quedó sin sellar)
       kubernetes.core.k8s:
         state: absent
         kubeconfig: "{{ kubeconfig_path }}"
