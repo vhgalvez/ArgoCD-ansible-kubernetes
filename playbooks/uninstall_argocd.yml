@@ -1,23 +1,63 @@
 # playbooks\uninstall_argocd.yml
 ---
-- name: Desinstalar ArgoCD
-  hosts: controller
-  become: true
+- name: 🧹 Desinstalar ArgoCD y sus recursos relacionados
+  hosts: localhost
+  connection: local
   gather_facts: false
+
   vars_files:
-    - group_vars/all.yml
+    - ../group_vars/all.yml
+
   environment:
     KUBECONFIG: "{{ kubeconfig_path }}"
 
   tasks:
-    - name: Desinstalar release de ArgoCD
-      kubernetes.core.helm:
-        name: argocd
-        release_namespace: "{{ argocd_namespace }}"
-        kubeconfig: "{{ kubeconfig_path }}"
-        state: absent
 
-    - name: Eliminar namespace
+    - name: 🧽 Eliminar IngressRoute de ArgoCD
+      kubernetes.core.k8s:
+        state: absent
+        kubeconfig: "{{ kubeconfig_path }}"
+        definition:
+          apiVersion: traefik.io/v1alpha1
+          kind: IngressRoute
+          metadata:
+            name: ingressroute-argocd-internal
+            namespace: "{{ argocd_namespace }}"
+
+    - name: 🧽 Eliminar Middleware de autenticación
+      kubernetes.core.k8s:
+        state: absent
+        kubeconfig: "{{ kubeconfig_path }}"
+        definition:
+          apiVersion: traefik.containo.us/v1alpha1
+          kind: Middleware
+          metadata:
+            name: "{{ argocd_middleware_name }}"
+            namespace: "{{ argocd_namespace }}"
+
+    - name: 🧽 Eliminar SealedSecret de autenticación básica
+      kubernetes.core.k8s:
+        state: absent
+        kubeconfig: "{{ kubeconfig_path }}"
+        definition:
+          apiVersion: bitnami.com/v1alpha1
+          kind: SealedSecret
+          metadata:
+            name: "{{ argocd_secret_name }}"
+            namespace: "{{ argocd_namespace }}"
+
+    - name: 🧽 Eliminar Secret personalizado (si quedó sin sellar)
+      kubernetes.core.k8s:
+        state: absent
+        kubeconfig: "{{ kubeconfig_path }}"
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: argocd-secret
+            namespace: "{{ argocd_namespace }}"
+
+    - name: 🗑️ Eliminar namespace completo de ArgoCD
       kubernetes.core.k8s:
         name: "{{ argocd_namespace }}"
         api_version: v1
