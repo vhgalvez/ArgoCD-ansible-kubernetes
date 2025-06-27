@@ -31,7 +31,7 @@
 
     - name: ⚙️ Verificar que las variables de autenticación estén definidas
       fail:
-        msg: "❌ ARGOCD_AUTH_USER y ARGOCD_AUTH_PASS deben estar definidos en .env"
+        msg: "❌ ARGOCD_AUTH_USER y ARGOCD_AUTH_PASS deben estar definidos en el archivo .env"
       when: _argocd_auth_user is not defined or _argocd_auth_user == "" or _argocd_auth_pass is not defined or _argocd_auth_pass == ""
 
     - name: 🔑 Generar cadena básica con htpasswd (bcrypt)
@@ -43,6 +43,12 @@
     - name: 🔐 Codificar "user:hash" en base64
       set_fact:
         basic_auth: "{{ basic_auth_string.stdout | b64encode }}"
+
+    - name: 📁 Crear directorio para archivos renderizados (playbooks/files)
+      file:
+        path: "{{ playbook_dir }}/files"
+        state: directory
+        mode: '0755'
 
     - name: 📝 Renderizar plantilla del Secret sin sellar (unsealed)
       template:
