@@ -78,9 +78,7 @@
               metadata:
                 annotations:
                   reload-timestamp: "{{ lookup('pipe','date +%s') }}"
-      register: traefik_rollout
 
-    # Esperar a que el rollout termine (opcional pero recomendable)
     - name: ⏳ Esperar a que Traefik vuelva a estar listo
       kubernetes.core.k8s_info:
         api_version: apps/v1
@@ -100,7 +98,9 @@
     # 4) Instalar ArgoCD (manifiesto oficial v2.11.2) ------------------- #
     # ------------------------------------------------------------------ #
     - name: 📥 Aplicar manifiestos oficiales de ArgoCD (v2.11.2)
-      kubernetes.core.k8s:
-        state: present
-        kubeconfig: "{{ kubeconfig_path }}"
-        definition: "{{ lookup('url', 'https://raw.githubusercontent.com/argoproj/argo-cd/v2.11.2/manifests/install.yaml') }}"
+      command: >
+        {{ kubectl_path }} --kubeconfig {{ kubeconfig_path }}
+        apply -n {{ argocd_namespace }}
+        -f https://raw.githubusercontent.com/argoproj/argo-cd/v2.11.2/manifests/install.yaml
+      register: argocd_apply_result
+      changed_when: "'configured' in argocd_apply_result.stdout or 'created' in argocd_apply_result.stdout"
