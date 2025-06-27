@@ -22,3 +22,6 @@ kubeseal_path: "/usr/local/bin/kubeseal"
 
 # Helm Chart y versión del administrador
 argocd_chart_version: "5.51.6"  # Versión estable
+
+# 🔐 Nombre del middleware de autenticación 
+argocd_middleware_name: traefik-auth
