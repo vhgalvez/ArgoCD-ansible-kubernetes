@@ -104,3 +104,63 @@
         -f https://raw.githubusercontent.com/argoproj/argo-cd/v2.11.2/manifests/install.yaml
       register: argocd_apply_result
       changed_when: "'configured' in argocd_apply_result.stdout or 'created' in argocd_apply_result.stdout"
+
+    # ------------------------------------------------------------------ #
+    # 5) Esperar readiness del Deployment argocd-server ---------------- #
+    # ------------------------------------------------------------------ #
+    - name: ⏳ Esperar a que el Deployment argocd-server esté disponible
+      kubernetes.core.k8s_info:
+        api_version: apps/v1
+        kind: Deployment
+        name: argocd-server
+        namespace: "{{ argocd_namespace }}"
+        kubeconfig: "{{ kubeconfig_path }}"
+      register: deploy_info
+      retries: 30
+      delay: 10
+      until: >
+        deploy_info.resources and
+        deploy_info.resources[0].status.conditions is defined and
+        (
+          deploy_info.resources[0].status.conditions
+          | selectattr('type', 'equalto', 'Available')
+          | selectattr('status', 'equalto', 'True')
+          | list | length
+        ) > 0
+
+    # ------------------------------------------------------------------ #
+    # 6) Diagnóstico si falla ------------------------------------------ #
+    # ------------------------------------------------------------------ #
+    - name: ⚠️ Debug si el Deployment no está listo
+      when: deploy_info.resources | length > 0 and
+            ( deploy_info.resources[0].status.availableReplicas | default(0) | int ) == 0
+      block:
+        - name: Mostrar condiciones del deployment
+          kubernetes.core.k8s_info:
+            api_version: apps/v1
+            kind: Deployment
+            name: argocd-server
+            namespace: "{{ argocd_namespace }}"
+            kubeconfig: "{{ kubeconfig_path }}"
+          register: diag_deploy
+
+        - debug:
+            var: diag_deploy.resources[0].status.conditions
+
+        - name: Listar pods
+          command: >
+            {{ kubectl_path }} --kubeconfig {{ kubeconfig_path }}
+            get pods -n {{ argocd_namespace }} -l app.kubernetes.io/name=argocd-server -o wide
+          register: pods_list
+
+        - debug:
+            var: pods_list.stdout_lines
+
+        - name: Eventos recientes
+          command: >
+            {{ kubectl_path }} --kubeconfig {{ kubeconfig_path }}
+            get events -n {{ argocd_namespace }} --sort-by=.metadata.creationTimestamp | tail -n 20
+          register: recent_events
+
+        - debug:
+            var: recent_events.stdout_lines
