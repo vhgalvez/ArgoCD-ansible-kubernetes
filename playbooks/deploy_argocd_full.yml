@@ -4,6 +4,7 @@
   hosts: localhost
   connection: local
   gather_facts: false
+  become: false
 
   vars_files:
     - ../vars/main.yml
@@ -27,7 +28,7 @@
     - name: 🔐 Generar y aplicar Secret sellado de autenticación básica
       include_tasks: 01_generate-auth-secret.yml
 
-    - name: 📦 Instalar ArgoCD con manifiestos y Ingress básico
+    - name: 📦 Instalar ArgoCD con manifiestos y configurar contraseña
       include_tasks: 03_install_argocd.yml
 
     - name: 🌐 Aplicar IngressRoute con autenticación (Traefik CRD)
