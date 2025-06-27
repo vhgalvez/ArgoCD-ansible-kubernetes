@@ -42,11 +42,10 @@ Ejecuta el siguiente comando desde la raíz del proyecto:
 ansible-playbook -i inventory/hosts.ini playbooks/deploy_argocd.yml
 ```
 
-
-
 ```bash
 nohup kubectl port-forward -n argocd svc/argocd-server --address 0.0.0.0 32004:80 > /tmp/argocd-port-forward.log 2>&1 &
 ```
+
 https://192.168.0.15:32004/
 
 ## 🌐 Acceso a ArgoCD
@@ -54,6 +53,7 @@ https://192.168.0.15:32004/
 Puedes acceder mediante dos opciones:
 
 - **Usando NodePort directo:**
+
   ```
   http://<IP_NODO_WORKER>:32004
   ```
@@ -77,20 +77,16 @@ kubectl get svc -n argocd
 kubectl get ingress -n argocd
 ```
 
-
 export ARGOCD_AUTH_USER="admin"
 export ARGOCD_AUTH_PASS="SuperPassword123"
 
-
 ¡Ahora tienes ArgoCD listo para gestionar tus aplicaciones mediante GitOps en Kubernetes!
 
+# Despliegue completo de ArgoCD con Ansible
 
-# 1. Cargar variables de entorno desde el archivo `.env`
+```bash
 source .env
-
-# 2. Exportar credenciales de acceso al Dashboard
 export ARGOCD_AUTH_USER="$ARGOCD_AUTH_USER" \
        ARGOCD_AUTH_PASS="$ARGOCD_ADMIN_PASSWORD"
-
-# 3. Ejecutar el playbook maestro con variables heredadas
 sudo -E ansible-playbook -i inventory/hosts.ini playbooks/deploy_argocd_full.yml
+```
