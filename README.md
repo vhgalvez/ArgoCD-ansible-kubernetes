@@ -90,3 +90,10 @@ export ARGOCD_AUTH_USER="$ARGOCD_AUTH_USER" \
        ARGOCD_AUTH_PASS="$ARGOCD_ADMIN_PASSWORD"
 sudo -E ansible-playbook -i inventory/hosts.ini playbooks/deploy_argocd_full.yml
 ```
+
+
+```bash
+source .env
+export ARGOCD_AUTH_USER ARGOCD_AUTH_PASS
+ansible-playbook -i inventory/hosts.ini playbooks/deploy_argocd_full.yml
+``` 
