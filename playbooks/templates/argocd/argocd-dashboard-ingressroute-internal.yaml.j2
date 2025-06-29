@@ -13,7 +13,7 @@ metadata:
     maintained-by: devops@socialdevs.site
 spec:
   entryPoints:
-    - websecure  # Asegúrate de que este entryPoint esté configurado correctamente
+    - websecure  # Debe ser HTTPS
   routes:
     - match: Host(`{{ argocd_dashboard_domain }}`) && PathPrefix(`/`)
       kind: Rule
@@ -25,4 +25,4 @@ spec:
           port: 80
           scheme: http  # Traefik manejará el TLS
   tls:
-    secretName: {{ tls_secret_name }}  # Asegúrate de que el Secret TLS esté configurado
+    secretName: {{ tls_secret_name }}  # El certificado TLS para el dominio
