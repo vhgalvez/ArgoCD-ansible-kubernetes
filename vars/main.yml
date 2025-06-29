@@ -1,32 +1,39 @@
-# vars/main.yml -------------------------------------------------------
-# Configuración principal del despliegue de ArgoCD
+# vars/main.yml
+# ─────────────────────────────────────────────────────────────────────────────
+# Configuración principal del despliegue de Argo CD
+# ─────────────────────────────────────────────────────────────────────────────
 
-# Namespace donde se despliega ArgoCD
+# Namespace donde se despliega Argo CD
 argocd_namespace: argocd
 
-# Dominio para acceso externo
+# Dominio público para acceder al Dashboard (Traefik → IngressRoute)
 argocd_dashboard_domain: "argocd.socialdevs.site"
-ingress_host: "argocd.cefaslocalserver.com"  # ← Úsalo solo si es diferente
 
-# Secret TLS compartido y su nombre
+# (Opcional) Host alternativo si usas Traefik Ingress de tipo "Ingress" clásico
+ingress_host: "argocd.cefaslocalserver.com"
+
+# Nombre del Secret TLS wildcard compartido (ya existente en kube-system)
 tls_secret_name: wildcard-socialdevs-tls
 
-# Configuración de autenticación básica (usando variables de entorno, con fallback opcional)
-argocd_auth_user: "{{ lookup('env', 'ARGOCD_AUTH_USER') | default('admin', true) }}"
+# ── Credenciales básicas para el Dashboard ──────────────────────────────────
+# Se leen de variables de entorno; si no existen, se usa un fallback.
+argocd_auth_user: "{{ lookup('env', 'ARGOCD_AUTH_USER') | default('admin',  true) }}"
 argocd_auth_pass: "{{ lookup('env', 'ARGOCD_AUTH_PASS') | default('SuperPassword123', true) }}"
 
-# 🔐 Nombre del Middleware (referenciado en el IngressRoute)
+# ── Objetos Traefik CRD ─────────────────────────────────────────────────────
+# Nombre del middleware de BasicAuth
 argocd_middleware_name: argocd-auth-middleware
 
-# 🧾 Nombre del Secret con credenciales básicas (referenciado en el Middleware)
-argocd_secret_name: argocd-auth-secret
+# Nombre del Secret con las credenciales htpasswd (referenciado por el middleware)
+argocd_secret_name: argocd-auth-secret   # ← este debe existir en el namespace argocd
 
-# Ruta del kubeconfig y herramientas
+# ── Rutas de herramientas locales ───────────────────────────────────────────
 kubeconfig_path: "/home/victory/.kube/config"
-kubectl_path: "/usr/local/bin/kubectl"
-kubeseal_path: "/usr/local/bin/kubeseal"
+kubectl_path:    "/usr/local/bin/kubectl"
+kubeseal_path:   "/usr/local/bin/kubeseal"
 
-# Helm Chart y versión del administrador
-argocd_chart_version: "5.51.6"  # Versión estable
+# ── Versión del Helm Chart de Argo CD ───────────────────────────────────────
+argocd_chart_version: "5.51.6"
 
+# URL de los CRDs de Traefik v3.4 (si necesitas instalarlos manualmente)
 traefik_crds_url: "https://raw.githubusercontent.com/traefik/traefik/v3.4.1/pkg/provider/kubernetes/crd/traefik-crd.yaml"
