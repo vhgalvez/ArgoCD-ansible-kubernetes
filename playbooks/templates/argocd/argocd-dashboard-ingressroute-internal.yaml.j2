@@ -25,4 +25,4 @@ spec:
           port: 80
           scheme: http  # Asegúrate de que el servicio se expone por HTTP, ya que Traefik terminará el TLS
   tls:
-    secretName: {{ tls_secret_name }}  # El certificado TLS de Let's Encrypt o certificado wildcard
+    secretName: {{ tls_secret_name }}  # El certificado TLS de Let's Encrypt o wildcard
