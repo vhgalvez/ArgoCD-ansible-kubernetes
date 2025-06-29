@@ -13,16 +13,16 @@ metadata:
     maintained-by: devops@socialdevs.site
 spec:
   entryPoints:
-    - websecure  # Este es el punto de entrada para tráfico HTTPS
+    - websecure  # Este es el punto de entrada para tráfico HTTPS (asegurate que esté habilitado en Traefik)
   routes:
     - match: Host(`{{ argocd_dashboard_domain }}`) && PathPrefix(`/`)
       kind: Rule
       middlewares:
         - name: {{ argocd_middleware_name }}
-          namespace: {{ argocd_namespace }}
+          namespace: {{ argocd_namespace }}  # Namespace donde se encuentra el middleware
       services:
         - name: argocd-server
           port: 80
-          scheme: http  # Asegúrate de que el servicio se expone por HTTP, ya que Traefik terminará el TLS
+          scheme: http  # Asegúrate de que el servicio está en HTTP; Traefik manejará el TLS en `websecure`
   tls:
-    secretName: {{ tls_secret_name }}  # El certificado TLS de Let's Encrypt o wildcard
+    secretName: {{ tls_secret_name }}  # El certificado TLS a usar, puede ser de Let's Encrypt o wildcard
