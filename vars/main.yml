@@ -17,8 +17,8 @@ tls_secret_name: wildcard-socialdevs-tls
 
 # ── Credenciales básicas para el Dashboard ──────────────────────────────────
 # Se leen de variables de entorno; si no existen, se usa un fallback.
-argocd_auth_user: "{{ lookup('env', 'ARGOCD_AUTH_USER') | default('admin',  true) }}"
-argocd_auth_pass: "{{ lookup('env', 'ARGOCD_AUTH_PASS') | default('SuperPassword123', true) }}"
+argocd_auth_user: "{{ lookup('env', 'ARGOCD_AUTH_USER') | default('admin') }}"
+argocd_auth_pass: "{{ lookup('env', 'ARGOCD_AUTH_PASS') | default('SuperPassword123') }}"
 
 # ── Objetos Traefik CRD ─────────────────────────────────────────────────────
 # Nombre del middleware de BasicAuth
