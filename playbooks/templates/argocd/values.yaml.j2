@@ -1,7 +1,7 @@
 # playbooks\templates\values.yaml.j2
 configs:
   params:
-    server.insecure: true  # Permite UI sin HTTPS interno (Traefik termina TLS)
+    server.insecure: true        # Traefik termina TLS; Argo CD sirve HTTP
 
 server:
   service:
@@ -9,16 +9,16 @@ server:
     portHttp: 80
     portHttps: 443
 
-  # ❌ Desactivamos el Ingress del chart porque usas IngressRoute personalizado
+  # ❌ Desactivamos el Ingress incluido en el chart (usamos IngressRoute)
   ingress:
     enabled: false
 
-  # ✅ Root path (mejor que basehref)
-  extraArgs:
-    - --rootpath=/
+  # ✅ Publica la UI en la raíz “/”
+  insecure: true                 # API en HTTP
+  routePrefix: /                 # UI y assets en /
 
-  # ⚠️ Habilita HTTP interno para el dashboard detrás de Traefik
-  insecure: true
+  # ‼️ Ya NO necesitas --rootpath
+  extraArgs: []                  # ← listado vacío
 
 repoServer:
   service:
@@ -29,4 +29,4 @@ controller:
     type: ClusterIP
 
 dex:
-  enabled: false  # No necesitas OIDC en esta fase
+  enabled: false                 # Aún no necesitas OIDC
