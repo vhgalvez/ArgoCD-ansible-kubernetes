@@ -11,11 +11,9 @@
 
   vars:
     mw_auth_template: "../templates/argocd/argocd-dashboard-middleware-auth.yaml.j2"
-    mw_headers_template: "../templates/argocd/argocd-dashboard-middleware-headers.yaml.j2"
     ir_template: "../templates/argocd/argocd-dashboard-ingressroute-internal.yaml.j2"
 
     mw_auth_manifest: "{{ playbook_dir }}/files/argocd-dashboard-middleware.yaml"
-    mw_headers_manifest: "{{ playbook_dir }}/files/argocd-dashboard-middleware-headers.yaml"
     ir_manifest: "{{ playbook_dir }}/files/argocd-dashboard-ingressroute.yaml"
 
   tasks:
@@ -53,7 +51,7 @@
       delay: 10
 
     # ------------------------------------------------------------------ #
-    # 1) Middleware (Auth + Headers) ----------------------------------- #
+    # 1) Middleware (Auth) --------------------------------------------- #
     # ------------------------------------------------------------------ #
     - name: 📄 Renderizar plantilla del Middleware (auth)
       template:
@@ -65,17 +63,6 @@
         {{ kubectl_path }} --kubeconfig {{ kubeconfig_path }} apply -f {{ mw_auth_manifest }}
       register: mw_auth_result
       changed_when: "'created' in mw_auth_result.stdout or 'configured' in mw_auth_result.stdout"
-
-    - name: 📄 Renderizar plantilla del Middleware (headers)
-      template:
-        src: "{{ mw_headers_template }}"
-        dest: "{{ mw_headers_manifest }}"
-
-    - name: 🚀 Aplicar Middleware (headers) al clúster
-      command: >
-        {{ kubectl_path }} --kubeconfig {{ kubeconfig_path }} apply -f {{ mw_headers_manifest }}
-      register: mw_headers_result
-      changed_when: "'created' in mw_headers_result.stdout or 'configured' in mw_headers_result.stdout"
 
     # ------------------------------------------------------------------ #
     # 2) IngressRoute -------------------------------------------------- #
@@ -100,5 +87,4 @@
         state: absent
       loop:
         - "{{ mw_auth_manifest }}"
-        - "{{ mw_headers_manifest }}"
         - "{{ ir_manifest }}"
