@@ -1,5 +1,5 @@
 # playbooks/02_install_argocd.yml
-# 🌐 Configuración de acceso web de ArgoCD: Middleware Traefik + IngressRoute + Secret UI + TLS
+# 🌐 Configuración de acceso web de ArgoCD: Secret UI + Middleware Traefik + IngressRoute + TLS
 
 ---
 - name: 🌐 Aplicar configuración de acceso web para ArgoCD
@@ -11,33 +11,17 @@
     - ../vars/main.yml
 
   vars:
-    mw_auth_template: "../templates/argocd/argocd-dashboard-middleware-auth.yaml.j2"
+    mw_auth_template: "../templates/argocd/argocd-dashboard-middleware.yaml.j2"
     ir_template: "../templates/argocd/argocd-dashboard-ingressroute-internal.yaml.j2"
     cm_template: "../templates/argocd/argocd-cm.yaml.j2"
     cmd_template: "../templates/argocd/argocd-cmd-params-cm.yaml.j2"
 
-    mw_auth_manifest: "{{ playbook_dir }}/files/argocd-dashboard-middleware-auth.yaml"
+    mw_auth_manifest: "{{ playbook_dir }}/files/argocd-dashboard-middleware.yaml"
     ir_manifest: "{{ playbook_dir }}/files/argocd-dashboard-ingressroute.yaml"
     cm_rendered: "{{ playbook_dir }}/files/argocd-cm.yaml"
     cmd_rendered: "{{ playbook_dir }}/files/argocd-cmd-params-cm.yaml"
 
   tasks:
-    # 🕒 Esperar a que el servidor ArgoCD esté disponible
-    - name: ⏳ Esperar que argocd-server esté disponible
-      kubernetes.core.k8s_info:
-        api_version: apps/v1
-        kind: Deployment
-        name: argocd-server
-        namespace: "{{ argocd_namespace }}"
-        kubeconfig: "{{ kubeconfig_path }}"
-      register: deploy_info
-      until: >
-        deploy_info.resources
-        and deploy_info.resources[0].status.availableReplicas is defined
-        and deploy_info.resources[0].status.availableReplicas | int > 0
-      retries: 30
-      delay: 10
-
     # 🔐 Hashear la contraseña del admin de Argo CD UI
     - name: 🔐 Hashear la contraseña del admin
       command: "htpasswd -nbBC 12 '' '{{ argocd_admin_password_plain }}'"
@@ -63,7 +47,7 @@
             admin.password: "{{ argocd_admin_password_hash }}"
             admin.passwordMtime: "{{ lookup('pipe', 'date -u +%Y-%m-%dT%H:%M:%SZ') }}"
 
-    # 🧩 ConfigMap con el dominio externo de la UI
+    # 🧩 ConfigMap con el dominio externo de la UI (sin duplicar server.insecure)
     - name: 📄 Renderizar plantilla del ConfigMap
       template:
         src: "{{ cm_template }}"
@@ -117,7 +101,7 @@
         {{ kubectl_path }} --kubeconfig {{ kubeconfig_path }}
         rollout restart deployment argocd-server -n {{ argocd_namespace }}
       register: restart_result
-      changed_when: "'restarted' in restart_result.stdout"
+      changed_when: true
 
     # 🧹 Limpiar archivos temporales
     - name: 🧹 Borrar archivos temporales
