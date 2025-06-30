@@ -120,6 +120,15 @@
       ignore_errors: true
       tags: [argocd, rbac]
 
+    - name: ❌ Eliminar ClusterRole de ArgoCD Server
+      kubernetes.core.k8s:
+        state: absent
+        kind: ClusterRole
+        api_version: rbac.authorization.k8s.io/v1
+        name: argocd-server
+      ignore_errors: true
+      tags: [argocd, rbac]
+
     # 🧬 CRDs
     - name: ❌ Eliminar CRDs de ArgoCD
       command: >
