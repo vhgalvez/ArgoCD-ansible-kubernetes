@@ -12,7 +12,6 @@
     KUBECONFIG: "{{ kubeconfig_path }}"
 
   tasks:
-
     # 🌐 Ingress & Middleware
     - name: ❌ Eliminar IngressRoute del Dashboard de ArgoCD
       kubernetes.core.k8s:
@@ -145,7 +144,7 @@
         {{ helm_path }} uninstall argocd --namespace {{ argocd_namespace }}
       register: helm_uninstall
       failed_when: false
-      changed_when: "'release \"argocd\" uninstalled' in helm_uninstall.stdout"
+      changed_when: '''release "argocd" uninstalled'' in helm_uninstall.stdout'
       ignore_errors: true
       tags: [argocd, helm]
 
@@ -157,3 +156,12 @@
         kind: Namespace
         state: absent
       tags: [argocd, namespace]
+
+    - name: ❌ Eliminar ClusterRoleBinding de ArgoCD Application Controller
+      kubernetes.core.k8s:
+        state: absent
+        kind: ClusterRoleBinding
+        api_version: rbac.authorization.k8s.io/v1
+        name: argocd-application-controller
+      ignore_errors: true
+      tags: [argocd, rbac]
