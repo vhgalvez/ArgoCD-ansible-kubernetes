@@ -10,7 +10,7 @@
     - ../vars/main.yml
 
   vars:
-    mw_auth_template: "../templates/argocd/argocd-dashboard-middleware.yaml.j2"
+    mw_auth_template: "../templates/argocd/argocd-dashboard-middleware-auth.yaml.j2"
     mw_headers_template: "../templates/argocd/argocd-dashboard-middleware-headers.yaml.j2"
     ir_template: "../templates/argocd/argocd-dashboard-ingressroute-internal.yaml.j2"
 

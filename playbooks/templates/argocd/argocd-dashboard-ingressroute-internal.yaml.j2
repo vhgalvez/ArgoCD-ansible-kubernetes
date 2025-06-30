@@ -13,7 +13,7 @@ metadata:
     maintained-by: devops@socialdevs.site
 spec:
   entryPoints:
-    - websecure  # Debe ser HTTPS
+    - websecure
   routes:
     - match: Host(`{{ argocd_dashboard_domain }}`) && PathPrefix(`/`)
       kind: Rule
@@ -25,6 +25,6 @@ spec:
       services:
         - name: argocd-server
           port: 80
-          scheme: http  # Traefik termina TLS
+          scheme: http               # Traefik termina TLS
   tls:
     secretName: {{ tls_secret_name }}
