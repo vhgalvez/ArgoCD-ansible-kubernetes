@@ -1,7 +1,7 @@
 # playbooks/02_install_argocd.yml
-# 🌐 Middleware + IngressRoute para ArgoCD (SOLO auth)
+# 🌐 Middleware + IngressRoute para ArgoCD (SOLO auth) + Secret UI
 ---
-- name: 🌐 Aplicar IngressRoute protegida para ArgoCD (Traefik CRD)
+- name: 🌐 Aplicar configuración de acceso web para ArgoCD
   hosts: localhost
   gather_facts: false
   become: false
@@ -18,7 +18,7 @@
 
   tasks:
 
-    # Esperar a que el Deployment esté listo
+    # 🕒 Esperar a que el servidor ArgoCD esté listo
     - name: ⏳ Esperar que argocd-server esté disponible
       kubernetes.core.k8s_info:
         api_version: apps/v1
@@ -34,7 +34,32 @@
       retries: 30
       delay: 10
 
-    # Render y aplicación del ÚNICO Middleware (auth)
+    # 🔐 Crear o actualizar el Secret `argocd-secret` con contraseña en Bcrypt
+    - name: 🔐 Hashear la contraseña del admin para Argo CD UI
+      ansible.builtin.command: "htpasswd -nbBC 12 '' '{{ argocd_admin_password_plain }}'"
+      register: bcrypt_password_raw
+      changed_when: false
+
+    - name: 🧠 Extraer solo el hash del output
+      ansible.builtin.set_fact:
+        argocd_admin_password_hash: "{{ bcrypt_password_raw.stdout.split(':')[-1] }}"
+
+    - name: 🗝️ Crear o actualizar el Secret argocd-secret con nueva contraseña
+      kubernetes.core.k8s:
+        state: present
+        namespace: "{{ argocd_namespace }}"
+        kubeconfig: "{{ kubeconfig_path }}"
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: argocd-secret
+          type: Opaque
+          stringData:
+            admin.password: "{{ argocd_admin_password_hash }}"
+            admin.passwordMtime: "{{ lookup('pipe', 'date -u +%Y-%m-%dT%H:%M:%SZ') }}"
+
+    # 📄 Renderizar y aplicar el Middleware de autenticación
     - name: 📄 Renderizar middleware auth
       template:
         src: "{{ mw_auth_template }}"
@@ -46,7 +71,7 @@
       register: mw_auth_result
       changed_when: "'created' in mw_auth_result.stdout or 'configured' in mw_auth_result.stdout"
 
-    # Render y aplicación del IngressRoute
+    # 📄 Renderizar y aplicar IngressRoute
     - name: 📄 Renderizar IngressRoute
       template:
         src: "{{ ir_template }}"
@@ -58,8 +83,8 @@
       register: ir_result
       changed_when: "'created' in ir_result.stdout or 'configured' in ir_result.stdout"
 
-    # Limpieza
-    - name: 🧹 Borrar temporales
+    # 🧹 Limpiar manifiestos temporales
+    - name: 🧹 Borrar archivos temporales
       file:
         path: "{{ item }}"
         state: absent

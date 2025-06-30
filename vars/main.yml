@@ -15,10 +15,16 @@ ingress_host: "argocd.cefaslocalserver.com"
 # Nombre del Secret TLS wildcard compartido (ya existente en kube-system)
 tls_secret_name: wildcard-socialdevs-tls
 
-# ── Credenciales básicas para el Dashboard ──────────────────────────────────
+
+# ── Usuario y contraseña para acceso UI ──────────────────────────────────────
+argocd_admin_user: admin
+argocd_admin_password_plain: "{{ lookup('env', 'ARGOCD_UI_ADMIN_PASSWORD') }}"
+
+
+# ── Credenciales básicas para el Dashboard  traefik ──────────────────────────────────
 # Se leen de variables de entorno; si no existen, se usa un fallback.
-argocd_auth_user: "{{ lookup('env', 'ARGOCD_AUTH_USER') | default('admin') }}"
-argocd_auth_pass: "{{ lookup('env', 'ARGOCD_AUTH_PASS') | default('SuperPassword123') }}"
+argocd_auth_user: "{{ lookup('env', 'ARGOCD_AUTH_USER') }}"
+argocd_auth_pass: "{{ lookup('env', 'ARGOCD_AUTH_PASS') }}"
 
 # ── Objetos Traefik CRD ─────────────────────────────────────────────────────
 # Nombre del middleware de BasicAuth
