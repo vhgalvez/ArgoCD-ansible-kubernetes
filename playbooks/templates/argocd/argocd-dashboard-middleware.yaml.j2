@@ -2,7 +2,7 @@
 apiVersion: traefik.io/v1alpha1
 kind: Middleware
 metadata:
-  name: {{ argocd_middleware_name }}-auth
+  name: {{ argocd_middleware_name }}
   namespace: {{ argocd_namespace }}
 spec:
   basicAuth:
