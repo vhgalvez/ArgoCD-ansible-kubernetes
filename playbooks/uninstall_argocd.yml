@@ -12,6 +12,7 @@
     KUBECONFIG: "{{ kubeconfig_path }}"
 
   tasks:
+
     # 🌐 Ingress & Middleware
     - name: ❌ Eliminar IngressRoute del Dashboard de ArgoCD
       kubernetes.core.k8s:
@@ -68,7 +69,7 @@
       ignore_errors: true
       tags: [argocd, secret]
 
-    # ⚙️ ConfigMaps (evitan que Helm instale si ya existen)
+    # ⚙️ ConfigMaps
     - name: ❌ Eliminar ConfigMap argocd-cm
       kubernetes.core.k8s:
         state: absent
@@ -110,21 +111,21 @@
       ignore_errors: true
       tags: [argocd, rbac]
 
-    - name: ❌ Eliminar ClusterRole de ArgoCD Application Controller
-      kubernetes.core.k8s:
-        state: absent
-        kind: ClusterRole
-        api_version: rbac.authorization.k8s.io/v1
-        name: argocd-application-controller
-      ignore_errors: true
-      tags: [argocd, rbac]
-
     - name: ❌ Eliminar ClusterRole de ArgoCD Server
       kubernetes.core.k8s:
         state: absent
         kind: ClusterRole
         api_version: rbac.authorization.k8s.io/v1
         name: argocd-server
+      ignore_errors: true
+      tags: [argocd, rbac]
+
+    - name: ❌ Eliminar ClusterRole de ArgoCD Application Controller
+      kubernetes.core.k8s:
+        state: absent
+        kind: ClusterRole
+        api_version: rbac.authorization.k8s.io/v1
+        name: argocd-application-controller
       ignore_errors: true
       tags: [argocd, rbac]
 
@@ -144,7 +145,7 @@
         {{ helm_path }} uninstall argocd --namespace {{ argocd_namespace }}
       register: helm_uninstall
       failed_when: false
-      changed_when: '''release "argocd" uninstalled'' in helm_uninstall.stdout'
+      changed_when: "'release \"argocd\" uninstalled' in helm_uninstall.stdout"
       ignore_errors: true
       tags: [argocd, helm]
 
@@ -156,12 +157,3 @@
         kind: Namespace
         state: absent
       tags: [argocd, namespace]
-
-    - name: ❌ Eliminar ClusterRole de ArgoCD Server
-      kubernetes.core.k8s:
-        state: absent
-        kind: ClusterRole
-        api_version: rbac.authorization.k8s.io/v1
-        name: argocd-server
-      ignore_errors: true
-      tags: [argocd, rbac]
