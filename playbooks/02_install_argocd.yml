@@ -1,5 +1,5 @@
 # playbooks/02_install_argocd.yml
-# 🚀 Instalar Argo CD + CRDs Traefik + reinicio Traefik + argocd-cm
+# 🚀 Instalar Argo CD + CRDs Traefik + reinicio Traefik + argocd-cm + cmd-params
 ---
 - name: 🚀 Instalar Argo CD con contraseña personalizada
   hosts: localhost
@@ -7,14 +7,15 @@
   become: false
 
   vars_files:
-    - ../vars/main.yml        # variables globales
+    - ../vars/main.yml
 
   vars:
     cm_render: "{{ playbook_dir }}/files/argocd-cm.yaml"
 
   tasks:
+
   ######################################################################
-  # 1) Secret de administrador                                         #
+  # 1) Secret de administrador
   ######################################################################
   - name: 🔐 Codificar contraseña admin en base64
     set_fact:
@@ -47,7 +48,7 @@
           admin.passwordMtime: "{{ lookup('pipe', 'date +%FT%TZ') | b64encode }}"
 
   ######################################################################
-  # 2) CRDs + RBAC de Traefik 3.4                                      #
+  # 2) CRDs + RBAC de Traefik 3.4
   ######################################################################
   - name: 📄 Instalar CRDs de Traefik (v3.4)
     kubernetes.core.k8s:
@@ -62,7 +63,7 @@
       kubeconfig: "{{ kubeconfig_path }}"
 
   ######################################################################
-  # 3) Reiniciar Traefik para cargar los nuevos CRDs                   #
+  # 3) Reiniciar Traefik para cargar los nuevos CRDs
   ######################################################################
   - name: 🔄 Reiniciar Deployment Traefik
     kubernetes.core.k8s:
@@ -94,7 +95,7 @@
           traefik_status.resources[0].status.replicas       | default(0) | int
 
   ######################################################################
-  # 4) Instalar Argo CD oficial                                        #
+  # 4) Instalar Argo CD oficial
   ######################################################################
   - name: 📥 Instalar Argo CD 2.11.2
     command: >
@@ -105,7 +106,7 @@
     changed_when: "'configured' in argocd_apply.stdout or 'created' in argocd_apply.stdout"
 
   ######################################################################
-  # 5) argocd-cm (url + server.insecure)                               #
+  # 5) argocd-cm (UI config: URL, branding, etc.)
   ######################################################################
   - name: 🌐 Renderizar plantilla argocd-cm
     template:
@@ -119,7 +120,26 @@
       src: "{{ cm_render }}"
 
   ######################################################################
-  # 6) Reiniciar argocd-server para aplicar configuración              #
+  # 5-bis) Parchear argocd-cmd-params-cm con server.insecure
+  ######################################################################
+  - name: 🌐 Asegurar flag --insecure en argocd-cmd-params-cm
+    kubernetes.core.k8s:
+      state: present
+      kubeconfig: "{{ kubeconfig_path }}"
+      definition:
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: argocd-cmd-params-cm
+          namespace: "{{ argocd_namespace }}"
+          labels:
+            app.kubernetes.io/name: argocd
+            app.kubernetes.io/component: server
+        data:
+          server.insecure: "true"
+
+  ######################################################################
+  # 6) Reiniciar argocd-server para aplicar configuración
   ######################################################################
   - name: 🔄 Reiniciar argocd-server
     kubernetes.core.k8s:
@@ -136,7 +156,7 @@
                 reload-timestamp: "{{ lookup('pipe','date +%s') }}"
 
   ######################################################################
-  # 7) Espera + debug opcional                                         #
+  # 7) Espera + debug
   ######################################################################
   - name: ⏳ Esperar a que argocd-server esté disponible
     kubernetes.core.k8s_info:
@@ -188,7 +208,7 @@
           var: events.stdout_lines
 
   ######################################################################
-  # 8) Limpieza temporal                                               #
+  # 8) Limpieza temporal
   ######################################################################
   - name: 🧹 Borrar plantilla argocd-cm renderizada
     file:
