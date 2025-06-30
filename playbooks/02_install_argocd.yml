@@ -1,139 +1,141 @@
-# playbooks\02_install_argocd.yml
-# 🧱 Instalación de ArgoCD + 🌐 Configuración de acceso web: Secret UI + Middleware Traefik + IngressRoute + TLS
-
+# playbooks/02_install_argocd.yml
+# 🧱 Instalación de Argo CD + 🌐 Exposición vía Traefik
 ---
 - name: 🧱 Instalar ArgoCD con Helm y aplicar configuración web
   hosts: localhost
   gather_facts: false
   become: false
-
   vars_files:
     - ../vars/main.yml
 
   vars:
-    helm_path: "/usr/local/bin/helm"  # Asegura ruta correcta
+    helm_path: "/usr/local/bin/helm"
+    values_src: "../templates/argocd/values.yaml.j2"
+    values_render: "{{ playbook_dir }}/files/values-argocd.yaml"
     mw_auth_template: "../templates/argocd/argocd-dashboard-middleware.yaml.j2"
-    ir_template: "../templates/argocd/argocd-dashboard-ingressroute-internal.yaml.j2"
-    cm_template: "../templates/argocd/argocd-cm.yaml.j2"
+    ir_template:  "../templates/argocd/argocd-dashboard-ingressroute-internal.yaml.j2"
+    cm_template:  "../templates/argocd/argocd-cm.yaml.j2"
     cmd_template: "../templates/argocd/argocd-cmd-params-cm.yaml.j2"
 
     mw_auth_manifest: "{{ playbook_dir }}/files/argocd-dashboard-middleware.yaml"
-    ir_manifest: "{{ playbook_dir }}/files/argocd-dashboard-ingressroute.yaml"
-    cm_rendered: "{{ playbook_dir }}/files/argocd-cm.yaml"
-    cmd_rendered: "{{ playbook_dir }}/files/argocd-cmd-params-cm.yaml"
+    ir_manifest:      "{{ playbook_dir }}/files/argocd-dashboard-ingressroute.yaml"
+    cm_rendered:      "{{ playbook_dir }}/files/argocd-cm.yaml"
+    cmd_rendered:     "{{ playbook_dir }}/files/argocd-cmd-params-cm.yaml"
 
   tasks:
-    # 📥 Agregar repositorio Helm
-    - name: 📥 Agregar repo Helm de ArgoCD
-      command: "{{ helm_path }} repo add argo https://argoproj.github.io/argo-helm"
-      changed_when: false
 
-    - name: 🔄 Actualizar repos Helm
-      command: "{{ helm_path }} repo update"
-      changed_when: false
+  # ------------------------------------------------------------------- #
+  # 0. Renderizar el values.yaml para Helm                              #
+  # ------------------------------------------------------------------- #
+  - name: ✍️ Renderizar values.yaml
+    template:
+      src: "{{ values_src }}"
+      dest: "{{ values_render }}"
 
-    # 🚀 Instalar ArgoCD con Helm
-    - name: 🚀 Instalar ArgoCD
-      command: >
-        {{ helm_path }} install argocd argo/argo-cd
-        --version {{ argocd_chart_version }}
-        --namespace {{ argocd_namespace }}
-        --create-namespace
-        --values {{ playbook_dir }}/templates/argocd/values.yaml.j2
-      register: helm_result
-      changed_when: "'deployed' in helm_result.stdout or 'installed' in helm_result.stdout"
-      environment:
-        KUBECONFIG: "{{ kubeconfig_path }}"
+  # ------------------------------------------------------------------- #
+  # 1. Preparar Helm                                                   #
+  # ------------------------------------------------------------------- #
+  - name: 📥 Agregar repo Helm de ArgoCD
+    command: "{{ helm_path }} repo add argo https://argoproj.github.io/argo-helm"
+    changed_when: false
 
-    # 🔐 Hashear la contraseña del admin de Argo CD UI
-    - name: 🔐 Hashear la contraseña del admin
-      command: "htpasswd -nbBC 12 '' '{{ argocd_admin_password_plain }}'"
-      register: bcrypt_password_raw
-      changed_when: false
+  - name: 🔄 Actualizar repos Helm
+    command: "{{ helm_path }} repo update"
+    changed_when: false
 
-    - name: 🧠 Extraer hash de la salida
-      set_fact:
-        argocd_admin_password_hash: "{{ bcrypt_password_raw.stdout.split(':')[-1] }}"
+  # ------------------------------------------------------------------- #
+  # 2. Eliminar Secret problemático (si existe)  <<<<<<<<<<<<<<<<<<<<<  #
+  # ------------------------------------------------------------------- #
+  - name: ❌ Eliminar Secret argocd-secret pre-existente
+    kubernetes.core.k8s:
+      state: absent
+      kind: Secret
+      name: argocd-secret
+      namespace: "{{ argocd_namespace }}"
+      kubeconfig: "{{ kubeconfig_path }}"
+    failed_when: false
+    changed_when: false
 
-    - name: 🗝️ Crear o actualizar el Secret argocd-secret
-      kubernetes.core.k8s:
-        state: present
-        namespace: "{{ argocd_namespace }}"
-        kubeconfig: "{{ kubeconfig_path }}"
-        definition:
-          apiVersion: v1
-          kind: Secret
-          metadata:
-            name: argocd-secret
-          type: Opaque
-          stringData:
-            admin.password: "{{ argocd_admin_password_hash }}"
-            admin.passwordMtime: "{{ lookup('pipe', 'date -u +%Y-%m-%dT%H:%M:%SZ') }}"
+  # ------------------------------------------------------------------- #
+  # 3. Instalar Argo CD con Helm                                        #
+  # ------------------------------------------------------------------- #
+  - name: 🚀 Instalar / actualizar ArgoCD con Helm
+    command: >
+      {{ helm_path }} upgrade --install argocd argo/argo-cd
+      --version {{ argocd_chart_version }}
+      --namespace {{ argocd_namespace }}
+      --create-namespace
+      --values {{ values_render }}
+    register: helm_res
+    environment: { KUBECONFIG: "{{ kubeconfig_path }}" }
+    changed_when: "'Release' in helm_res.stdout or helm_res.rc == 0"
 
-    # 🧩 ConfigMap con el dominio externo
-    - name: 📄 Renderizar plantilla del ConfigMap
-      template:
-        src: "{{ cm_template }}"
-        dest: "{{ cm_rendered }}"
+  # ------------------------------------------------------------------- #
+  # 4. Sobrescribir (o crear) contraseña admin después de Helm          #
+  # ------------------------------------------------------------------- #
+  - name: 🔐 Hashear la contraseña del admin
+    command: "htpasswd -nbBC 12 '' '{{ argocd_admin_password_plain }}'"
+    register: bcrypt_pw
+    changed_when: false
 
-    - name: 🚀 Aplicar ConfigMap
-      command: >
-        {{ kubectl_path }} --kubeconfig {{ kubeconfig_path }} apply -f {{ cm_rendered }}
-      register: cm_result
-      changed_when: "'created' in cm_result.stdout or 'configured' in cm_result.stdout"
+  - name: 🗝️  Secret argocd-secret con pass de admin
+    kubernetes.core.k8s:
+      state: present
+      kubeconfig: "{{ kubeconfig_path }}"
+      definition:
+        apiVersion: v1
+        kind: Secret
+        metadata:
+          name: argocd-secret
+          namespace: "{{ argocd_namespace }}"
+        type: Opaque
+        stringData:
+          admin.password: "{{ bcrypt_pw.stdout.split(':')[-1] }}"
+          admin.passwordMtime: "{{ lookup('pipe','date -u +%Y-%m-%dT%H:%M:%SZ') }}"
 
-    # 🧩 Middleware de autenticación (Traefik)
-    - name: 📄 Renderizar middleware auth
-      template:
-        src: "{{ mw_auth_template }}"
-        dest: "{{ mw_auth_manifest }}"
+  # ------------------------------------------------------------------- #
+  # 5. ConfigMap, Middleware y IngressRoute                             #
+  # ------------------------------------------------------------------- #
+  - name: 📄 Renderizar CM   ; apply
+    template: { src: "{{ cm_template }}",  dest: "{{ cm_rendered }}" }
+  - command: "{{ kubectl_path }} --kubeconfig {{ kubeconfig_path }} apply -f {{ cm_rendered }}"
+    register: cm_res ; changed_when: "'configured' in cm_res.stdout or 'created' in cm_res.stdout"
 
-    - name: 🚀 Aplicar middleware auth
-      command: >
-        {{ kubectl_path }} --kubeconfig {{ kubeconfig_path }} apply -f {{ mw_auth_manifest }}
-      register: mw_auth_result
-      changed_when: "'created' in mw_auth_result.stdout or 'configured' in mw_auth_result.stdout"
+  - name: 📄 Renderizar Middleware ; apply
+    template: { src: "{{ mw_auth_template }}", dest: "{{ mw_auth_manifest }}" }
+  - command: "{{ kubectl_path }} --kubeconfig {{ kubeconfig_path }} apply -f {{ mw_auth_manifest }}"
+    register: mw_res ; changed_when: "'configured' in mw_res.stdout or 'created' in mw_res.stdout"
 
-    # 🧩 IngressRoute protegido con middleware
-    - name: 📄 Renderizar IngressRoute
-      template:
-        src: "{{ ir_template }}"
-        dest: "{{ ir_manifest }}"
+  - name: 📄 Renderizar IngressRoute ; apply
+    template: { src: "{{ ir_template }}", dest: "{{ ir_manifest }}" }
+  - command: "{{ kubectl_path }} --kubeconfig {{ kubeconfig_path }} apply -f {{ ir_manifest }}"
+    register: ir_res ; changed_when: "'configured' in ir_res.stdout or 'created' in ir_res.stdout"
 
-    - name: 🚀 Aplicar IngressRoute
-      command: >
-        {{ kubectl_path }} --kubeconfig {{ kubeconfig_path }} apply -f {{ ir_manifest }}
-      register: ir_result
-      changed_when: "'created' in ir_result.stdout or 'configured' in ir_result.stdout"
+  # ------------------------------------------------------------------- #
+  # 6. Desactivar TLS interno + restart                                 #
+  # ------------------------------------------------------------------- #
+  - name: 📄 Renderizar argocd-cmd-params-cm ; apply
+    template: { src: "{{ cmd_template }}", dest: "{{ cmd_rendered }}" }
+  - command: "{{ kubectl_path }} --kubeconfig {{ kubeconfig_path }} apply -f {{ cmd_rendered }}"
+    register: cmd_res ; changed_when: "'configured' in cmd_res.stdout or 'created' in cmd_res.stdout"
 
-    # 🧩 Desactivar TLS interno de ArgoCD
-    - name: 📄 Renderizar argocd-cmd-params-cm
-      template:
-        src: "{{ cmd_template }}"
-        dest: "{{ cmd_rendered }}"
+  - name: 🔁 Rollout restart argocd-server (ignorar si aún no está)
+    command: >
+      {{ kubectl_path }} --kubeconfig {{ kubeconfig_path }}
+      rollout restart deployment argocd-server -n {{ argocd_namespace }}
+    ignore_errors: true
+    changed_when: true
 
-    - name: 🚀 Aplicar argocd-cmd-params-cm
-      command: >
-        {{ kubectl_path }} --kubeconfig {{ kubeconfig_path }} apply -f {{ cmd_rendered }}
-      register: cmd_cm_result
-      changed_when: "'created' in cmd_cm_result.stdout or 'configured' in cmd_cm_result.stdout"
-
-    # 🔁 Reiniciar el servidor ArgoCD (por cambio de contraseña o config)
-    - name: 🔁 Reiniciar argocd-server
-      command: >
-        {{ kubectl_path }} --kubeconfig {{ kubeconfig_path }}
-        rollout restart deployment argocd-server -n {{ argocd_namespace }}
-      register: restart_result
-      changed_when: true
-      ignore_errors: true  # por si aún no está listo tras Helm
-
-    # 🧹 Limpiar archivos temporales
-    - name: 🧹 Borrar archivos temporales
-      file:
-        path: "{{ item }}"
-        state: absent
-      loop:
-        - "{{ mw_auth_manifest }}"
-        - "{{ ir_manifest }}"
-        - "{{ cm_rendered }}"
-        - "{{ cmd_rendered }}"
+  # ------------------------------------------------------------------- #
+  # 7. Limpiar archivos temporales                                      #
+  # ------------------------------------------------------------------- #
+  - name: 🧹 Limpiar tmp
+    file:
+      path: "{{ item }}"
+      state: absent
+    loop:
+      - "{{ mw_auth_manifest }}"
+      - "{{ ir_manifest }}"
+      - "{{ cm_rendered }}"
+      - "{{ cmd_rendered }}"
+      - "{{ values_render }}"
