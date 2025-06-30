@@ -1,0 +1,10 @@
+# playbooks\templates\argocd\argocd-dashboard-middleware-headers.yaml.j2
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ argocd_middleware_name }}-headers
+  namespace: {{ argocd_namespace }}
+spec:
+  headers:
+    customRequestHeaders:
+      X-Forwarded-Proto: "https"

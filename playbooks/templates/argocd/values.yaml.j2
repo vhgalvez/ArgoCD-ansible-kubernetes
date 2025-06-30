@@ -9,16 +9,12 @@ server:
     portHttp: 80
     portHttps: 443
 
-  # ❌ Desactivamos el Ingress incluido en el chart (usamos IngressRoute)
-  ingress:
+  ingress:                       # Ingress nativo del chart → desactivado
     enabled: false
 
-  # ✅ Publica la UI en la raíz “/”
-  insecure: true                 # API en HTTP
-  routePrefix: /                 # UI y assets en /
-
-  # ‼️ Ya NO necesitas --rootpath
-  extraArgs: []                  # ← listado vacío
+  insecure: true                 # UI y API expuestas en HTTP interno
+  routePrefix: /                 # UI en raíz “/”
+  extraArgs: []                  # Sin --rootpath
 
 repoServer:
   service:
@@ -29,4 +25,4 @@ controller:
     type: ClusterIP
 
 dex:
-  enabled: false                 # Aún no necesitas OIDC
+  enabled: false                 # Sin OIDC de momento

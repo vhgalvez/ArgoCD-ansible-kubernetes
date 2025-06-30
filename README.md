@@ -32,6 +32,8 @@ ansible-playbook -i inventory/hosts.ini playbooks/deploy_argocd_full.yml
 ``` 
 
 
+sudo -E ansible-playbook -i inventory/hosts.ini playbooks/uninstall_argocd.yml
+
 ## ✅ Validación del despliegue
 
 Puedes verificar que ArgoCD esté funcionando correctamente:

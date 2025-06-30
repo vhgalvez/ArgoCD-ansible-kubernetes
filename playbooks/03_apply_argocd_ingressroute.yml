@@ -63,6 +63,19 @@
       register: mw_result
       changed_when: "'created' in mw_result.stdout or 'configured' in mw_result.stdout"
 
+
+
+      - name: 📄 Renderizar middleware headers para ArgoCD
+  template:
+    src: templates/argocd/argocd-dashboard-middleware-headers.yaml.j2
+    dest: playbooks/files/argocd-dashboard-middleware-headers.yaml
+
+- name: 🚀 Aplicar middleware headers al clúster
+  kubernetes.core.k8s:
+    state: present
+    src: playbooks/files/argocd-dashboard-middleware-headers.yaml
+
+
     # ------------------------------------------------------------------ #
     # 2) IngressRoute --------------------------------------------------- #
     # ------------------------------------------------------------------ #

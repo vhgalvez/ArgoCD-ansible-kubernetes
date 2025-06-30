@@ -18,11 +18,13 @@ spec:
     - match: Host(`{{ argocd_dashboard_domain }}`) && PathPrefix(`/`)
       kind: Rule
       middlewares:
-        - name: {{ argocd_middleware_name }}
+        - name: {{ argocd_middleware_name }}-auth
+          namespace: {{ argocd_namespace }}
+        - name: {{ argocd_middleware_name }}-headers
           namespace: {{ argocd_namespace }}
       services:
         - name: argocd-server
           port: 80
-          scheme: http  # Traefik manejará el TLS
+          scheme: http  # Traefik termina TLS
   tls:
-    secretName: {{ tls_secret_name }}  # El certificado TLS para el dominio
+    secretName: {{ tls_secret_name }}

@@ -2,11 +2,10 @@
 apiVersion: traefik.io/v1alpha1
 kind: Middleware
 metadata:
-  name: {{ argocd_middleware_name }}
+  name: {{ argocd_middleware_name }}-auth
   namespace: {{ argocd_namespace }}
 spec:
   basicAuth:
-    secret: {{ argocd_secret_name }}  # El nombre del Secret que contiene las credenciales de autenticación (htpasswd)
-  headers:
-    customRequestHeaders:
-      X-Forwarded-Proto: "https"
+    secret: {{ argocd_secret_name }}
+    realm: "ArgoCD UI"
+    removeHeader: true
