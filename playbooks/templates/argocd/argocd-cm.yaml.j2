@@ -1,13 +1,16 @@
-playbooks\templates\argocd\argocd-cm.yaml.j2
-- name: 🌐 Establecer url externa en argocd-cm
-  kubernetes.core.k8s:
-    state: present
-    kubeconfig: "{{ kubeconfig_path }}"
-    definition:
-      apiVersion: v1
-      kind: ConfigMap
-      metadata:
-        name: argocd-cm
-        namespace: "{{ argocd_namespace }}"
-      data:
-        url: "https://{{ argocd_dashboard_domain }}"
+# playbooks\templates\argocd\argocd-cm.yaml.j2
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+  namespace: {{ argocd_namespace }}
+  labels:
+    app.kubernetes.io/name: argocd
+    app.kubernetes.io/component: config
+    app.kubernetes.io/part-of: argocd
+data:
+  # URL pública que usará Argo CD para generar enlaces y redirecciones
+  url: "https://{{ argocd_dashboard_domain }}"
+
+  # Indica al backend que confíe en el proxy y no haga TLS propio
+  server.insecure: "true"
