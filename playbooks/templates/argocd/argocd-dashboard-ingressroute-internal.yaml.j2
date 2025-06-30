@@ -18,7 +18,7 @@ spec:
     - match: Host(`{{ argocd_dashboard_domain }}`) && PathPrefix(`/`)
       kind: Rule
       middlewares:
-        - name: {{ argocd_middleware_name }}   # ← sin "-auth"
+        - name: {{ argocd_middleware_name }}-auth 
           namespace: {{ argocd_namespace }}
       services:
         - name: argocd-server
