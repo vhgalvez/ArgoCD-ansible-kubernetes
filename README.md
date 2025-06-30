@@ -16,6 +16,9 @@ ARGOCD_AUTH_USER=admin
 ARGOCD_AUTH_PASS=SuperPassword123
 
 
+export ARGOCD_UI_ADMIN_PASSWORD="admin"
+
+
 export ARGOCD_AUTH_USER="admin"
 export ARGOCD_AUTH_PASS="SuperPassword123"
 
