@@ -109,3 +109,16 @@
       register: restart_result
       changed_when: "'restarted' in restart_result.stdout"
       tags: [optional]
+
+      
+    - name: 🔐 Hashear la contraseña del admin para Argo CD UI
+      command: >-
+        htpasswd -nbBC 12 "" "{{ argocd_admin_password_plain }}"
+      register: bcrypt_password_raw
+      changed_when: false
+    …
+    - name: 🔁 Reiniciar despliegue de argocd-server
+      command: >
+        {{ kubectl_path }} --kubeconfig {{ kubeconfig_path }} \
+        rollout restart deployment argocd-server -n {{ argocd_namespace }}
+      changed_when: true

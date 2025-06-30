@@ -1,0 +1,8 @@
+# templates/argocd/argocd-cmd-params-cm.yaml.j2  (nuevo)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cmd-params-cm
+  namespace: {{ argocd_namespace }}
+data:
+  server.insecure: "true"

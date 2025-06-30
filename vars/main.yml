@@ -17,7 +17,7 @@ tls_secret_name: wildcard-socialdevs-tls  # Secret ya creado en kube-system
 
 # ── Usuario administrador para la UI de Argo CD ──────────────────────────────
 argocd_admin_user: admin
-argocd_admin_password_plain: "{{ lookup('env', 'ARGOCD_UI_ADMIN_PASSWORD') }}"
+argocd_admin_password_plain: "{{ lookup('env','ARGOCD_UI_ADMIN_PASSWORD') }}"
 
 # ── Credenciales de acceso básico (Traefik BasicAuth) ────────────────────────
 # Estas credenciales protegen el acceso web vía middleware (Traefik)
