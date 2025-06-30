@@ -17,12 +17,12 @@ spec:
   routes:
     - match: Host(`{{ argocd_dashboard_domain }}`) && PathPrefix(`/`)
       kind: Rule
-      middlewares:                    # 👈 solo auth
-        - name: {{ argocd_middleware_name }}-auth
+      middlewares:
+        - name: {{ argocd_middleware_name }}   # ← sin "-auth"
           namespace: {{ argocd_namespace }}
       services:
         - name: argocd-server
           port: 80
-          scheme: http                # Traefik hace TLS
+          scheme: http
   tls:
     secretName: {{ tls_secret_name }}
