@@ -32,7 +32,7 @@
         --max-time 10 --silent --output /dev/null --write-out '%{http_code}'
       register: dashboard_status
       changed_when: false
-      failed_when: dashboard_status.stdout not in ['200','302','401']
+      failed_when: dashboard_status.stdout not in ['200','302','307','401']
 
     - name: Mostrar resultado HTTP
       debug:
