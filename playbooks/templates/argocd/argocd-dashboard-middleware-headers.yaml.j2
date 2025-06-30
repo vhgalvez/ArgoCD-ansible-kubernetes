@@ -9,9 +9,8 @@ spec:
     customRequestHeaders:
       X-Forwarded-Proto: "https"
       X-Forwarded-Port: "443"
-      X-Forwarded-Host: "{{ argocd_dashboard_domain }}"
     sslRedirect: true
-    stsSeconds: 315360000
+    stsSeconds: 31536000
+    stsIncludeSubdomains: true
+    stsPreload: true
     forceSTSHeader: true
-    sslHost: "{{ argocd_dashboard_domain }}"
-    referrerPolicy: "strict-origin-when-cross-origin"
