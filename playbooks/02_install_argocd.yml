@@ -7,7 +7,7 @@
   become: false
 
   vars_files:
-    - ../vars/main.yml                       # variables globales
+    - ../vars/main.yml  # variables globales
 
   tasks:
   # ------------------------------------------------------------------ #
@@ -103,9 +103,9 @@
     changed_when: "'configured' in argocd_apply.stdout or 'created' in argocd_apply.stdout"
 
   # ------------------------------------------------------------------ #
-  # 5) Parchear argocd-cm con la URL pública                           #
+  # 5) Parchear argocd-cm con la URL pública y server.insecure         #
   # ------------------------------------------------------------------ #
-  - name: 🌐 Establecer url externa en argocd-cm
+  - name: 🌐 Crear o actualizar ConfigMap argocd-cm (url + server.insecure)
     kubernetes.core.k8s:
       state: present
       kubeconfig: "{{ kubeconfig_path }}"
@@ -115,8 +115,12 @@
         metadata:
           name: argocd-cm
           namespace: "{{ argocd_namespace }}"
+          labels:
+            app.kubernetes.io/name: argocd
+            app.kubernetes.io/component: config
         data:
           url: "https://{{ argocd_dashboard_domain }}"
+          server.insecure: "true"
 
   - name: 🔄 Reiniciar argocd-server para aplicar configuración
     kubernetes.core.k8s:
@@ -155,7 +159,6 @@
           | list | length
       ) > 0
 
-  # -- DEBUG extra si no está listo en el primer intento --------------
   - name: ⚠️ Debug si el Deployment no está listo
     when: deploy_info.resources | length > 0 and
           (
