@@ -1,4 +1,4 @@
-# playbooks/uninstall_argocd.yml
+# playbooks\uninstall_argocd.yml
 ---
 - name: 🗑️ Desinstalar ArgoCD y sus recursos relacionados
   hosts: localhost
@@ -12,156 +12,159 @@
     KUBECONFIG: "{{ kubeconfig_path }}"
 
   tasks:
+
+    # =============================
     # 🌐 Ingress & Middleware
+    # =============================
     - name: ❌ Eliminar IngressRoute del Dashboard de ArgoCD
       kubernetes.core.k8s:
         state: absent
-        definition:
-          apiVersion: traefik.io/v1alpha1
-          kind: IngressRoute
-          metadata:
-            name: ingressroute-argocd-internal
-            namespace: "{{ argocd_namespace }}"
+        api_version: traefik.io/v1alpha1
+        kind: IngressRoute
+        name: ingressroute-argocd-internal
+        namespace: "{{ argocd_namespace }}"
       tags: [argocd, ingressroute]
 
     - name: ❌ Eliminar Middleware de autenticación de ArgoCD
       kubernetes.core.k8s:
         state: absent
-        definition:
-          apiVersion: traefik.io/v1alpha1
-          kind: Middleware
-          metadata:
-            name: "{{ argocd_middleware_name }}"
-            namespace: "{{ argocd_namespace }}"
+        api_version: traefik.io/v1alpha1
+        kind: Middleware
+        name: "{{ argocd_middleware_name }}-auth"
+        namespace: "{{ argocd_namespace }}"
       tags: [argocd, middleware]
 
-    # 🔐 Autenticación
+    # =============================
+    # 🔐 Autenticación y Secretos
+    # =============================
     - name: ❌ Eliminar SealedSecret de autenticación básica
       kubernetes.core.k8s:
         state: absent
-        definition:
-          apiVersion: bitnami.com/v1alpha1
-          kind: SealedSecret
-          metadata:
-            name: "{{ argocd_secret_name }}"
-            namespace: "{{ argocd_namespace }}"
+        api_version: bitnami.com/v1alpha1
+        kind: SealedSecret
+        name: "{{ argocd_secret_name }}"
+        namespace: "{{ argocd_namespace }}"
       tags: [argocd, sealedsecret]
 
     - name: ❌ Eliminar Secret de autenticación sin sellar
       kubernetes.core.k8s:
         state: absent
-        definition:
-          apiVersion: v1
-          kind: Secret
-          metadata:
-            name: "{{ argocd_secret_name }}"
-            namespace: "{{ argocd_namespace }}"
+        api_version: v1
+        kind: Secret
+        name: "{{ argocd_secret_name }}"
+        namespace: "{{ argocd_namespace }}"
       tags: [argocd, secret]
 
     - name: ❌ Eliminar Secret de contraseña admin de ArgoCD
       kubernetes.core.k8s:
         state: absent
-        kind: Secret
         api_version: v1
+        kind: Secret
         name: argocd-secret
         namespace: "{{ argocd_namespace }}"
-      ignore_errors: true
       tags: [argocd, secret]
 
+    # =============================
     # ⚙️ ConfigMaps
+    # =============================
     - name: ❌ Eliminar ConfigMap argocd-cm
       kubernetes.core.k8s:
         state: absent
-        kind: ConfigMap
         api_version: v1
+        kind: ConfigMap
         name: argocd-cm
         namespace: "{{ argocd_namespace }}"
-      ignore_errors: true
       tags: [argocd, configmap]
 
     - name: ❌ Eliminar ConfigMap argocd-cmd-params-cm
       kubernetes.core.k8s:
         state: absent
-        kind: ConfigMap
         api_version: v1
+        kind: ConfigMap
         name: argocd-cmd-params-cm
         namespace: "{{ argocd_namespace }}"
-      ignore_errors: true
       tags: [argocd, configmap]
 
-    # 👤 ServiceAccounts
+    # =============================
+    # 👤 ServiceAccount
+    # =============================
     - name: ❌ Eliminar ServiceAccount de ArgoCD
       kubernetes.core.k8s:
         state: absent
-        kind: ServiceAccount
         api_version: v1
+        kind: ServiceAccount
         name: argocd-server
         namespace: "{{ argocd_namespace }}"
-      ignore_errors: true
       tags: [argocd, serviceaccount]
 
+    # =============================
     # 🔐 RBAC
-    - name: ❌ Eliminar ClusterRoleBinding de ArgoCD
-      kubernetes.core.k8s:
-        state: absent
-        kind: ClusterRoleBinding
-        api_version: rbac.authorization.k8s.io/v1
-        name: argocd-server
-      ignore_errors: true
-      tags: [argocd, rbac]
-
+    # =============================
     - name: ❌ Eliminar ClusterRole de ArgoCD Server
       kubernetes.core.k8s:
         state: absent
-        kind: ClusterRole
         api_version: rbac.authorization.k8s.io/v1
+        kind: ClusterRole
         name: argocd-server
-      ignore_errors: true
       tags: [argocd, rbac]
 
     - name: ❌ Eliminar ClusterRole de ArgoCD Application Controller
       kubernetes.core.k8s:
         state: absent
-        kind: ClusterRole
         api_version: rbac.authorization.k8s.io/v1
+        kind: ClusterRole
         name: argocd-application-controller
-      ignore_errors: true
       tags: [argocd, rbac]
 
+    - name: ❌ Eliminar ClusterRoleBinding de ArgoCD Server
+      kubernetes.core.k8s:
+        state: absent
+        api_version: rbac.authorization.k8s.io/v1
+        kind: ClusterRoleBinding
+        name: argocd-server
+      tags: [argocd, rbac]
+
+    - name: ❌ Eliminar ClusterRoleBinding de ArgoCD Application Controller
+      kubernetes.core.k8s:
+        state: absent
+        api_version: rbac.authorization.k8s.io/v1
+        kind: ClusterRoleBinding
+        name: argocd-application-controller
+      tags: [argocd, rbac]
+
+    # =============================
     # 🧬 CRDs
+    # =============================
     - name: ❌ Eliminar CRDs de ArgoCD
       command: >
-        {{ kubectl_path }} --kubeconfig {{ kubeconfig_path }}
-        delete crd applications.argoproj.io applicationsets.argoproj.io
-        appprojects.argoproj.io argocdextensions.argoproj.io
-      ignore_errors: true
-      changed_when: true
+        {{ kubectl_path }} --kubeconfig {{ kubeconfig_path }} delete crd
+        applications.argoproj.io
+        applicationsets.argoproj.io
+        appprojects.argoproj.io
+        argocdextensions.argoproj.io
+      register: delete_crds
+      failed_when: false
+      changed_when: "'NotFound' not in delete_crds.stderr"
       tags: [argocd, crd]
 
+    # =============================
     # 📦 Helm release
+    # =============================
     - name: ❌ Eliminar release Helm de ArgoCD
       command: >
         {{ helm_path }} uninstall argocd --namespace {{ argocd_namespace }}
       register: helm_uninstall
       failed_when: false
-      changed_when: '''release "argocd" uninstalled'' in helm_uninstall.stdout'
-      ignore_errors: true
+      changed_when: "'release \"argocd\" uninstalled' in helm_uninstall.stdout"
       tags: [argocd, helm]
 
+    # =============================
     # 🧹 Namespace
+    # =============================
     - name: 🧹 Eliminar namespace completo de ArgoCD
       kubernetes.core.k8s:
-        name: "{{ argocd_namespace }}"
+        state: absent
         api_version: v1
         kind: Namespace
-        state: absent
+        name: "{{ argocd_namespace }}"
       tags: [argocd, namespace]
-
-    - name: ❌ Eliminar ClusterRoleBinding de ArgoCD Application Controller
-      kubernetes.core.k8s:
-        state: absent
-        kind: ClusterRoleBinding
-        api_version: rbac.authorization.k8s.io/v1
-        name: argocd-application-controller
-      ignore_errors: true
-      tags: [argocd, rbac]
