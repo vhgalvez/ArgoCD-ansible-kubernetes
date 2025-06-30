@@ -3,43 +3,39 @@
 # Configuración principal del despliegue de Argo CD
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Namespace donde se despliega Argo CD
+# ── Namespace de despliegue ──────────────────────────────────────────────────
 argocd_namespace: argocd
 
-# Dominio público para acceder al Dashboard (Traefik → IngressRoute)
+# ── Dominio para acceder al Dashboard ────────────────────────────────────────
 argocd_dashboard_domain: "argocd.socialdevs.site"
 
-# (Opcional) Host alternativo si usas Traefik Ingress de tipo "Ingress" clásico
+# (Opcional) Dominio alternativo para pruebas o Ingress clásico
 ingress_host: "argocd.cefaslocalserver.com"
 
-# Nombre del Secret TLS wildcard compartido (ya existente en kube-system)
-tls_secret_name: wildcard-socialdevs-tls
+# ── Certificado TLS compartido ───────────────────────────────────────────────
+tls_secret_name: wildcard-socialdevs-tls  # Secret ya creado en kube-system
 
-
-# ── Usuario y contraseña para acceso UI ──────────────────────────────────────
+# ── Usuario administrador para la UI de Argo CD ──────────────────────────────
 argocd_admin_user: admin
 argocd_admin_password_plain: "{{ lookup('env', 'ARGOCD_UI_ADMIN_PASSWORD') }}"
 
-
-# ── Credenciales básicas para el Dashboard  traefik ──────────────────────────────────
-# Se leen de variables de entorno; si no existen, se usa un fallback.
+# ── Credenciales de acceso básico (Traefik BasicAuth) ────────────────────────
+# Estas credenciales protegen el acceso web vía middleware (Traefik)
 argocd_auth_user: "{{ lookup('env', 'ARGOCD_AUTH_USER') }}"
 argocd_auth_pass: "{{ lookup('env', 'ARGOCD_AUTH_PASS') }}"
 
-# ── Objetos Traefik CRD ─────────────────────────────────────────────────────
-# Nombre del middleware de BasicAuth
+# ── Objetos Traefik CRD ──────────────────────────────────────────────────────
+# Middleware y Secret para BasicAuth
 argocd_middleware_name: argocd-auth-middleware
+argocd_secret_name: argocd-auth-secret  # Se usará en el middleware de Traefik
 
-# Nombre del Secret con las credenciales htpasswd (referenciado por el middleware)
-argocd_secret_name: argocd-auth-secret   # ← este debe existir en el namespace argocd
-
-# ── Rutas de herramientas locales ───────────────────────────────────────────
+# ── Rutas de herramientas locales ────────────────────────────────────────────
 kubeconfig_path: "/home/victory/.kube/config"
 kubectl_path:    "/usr/local/bin/kubectl"
 kubeseal_path:   "/usr/local/bin/kubeseal"
 
-# ── Versión del Helm Chart de Argo CD ───────────────────────────────────────
+# ── Versión del Chart de Helm de Argo CD ─────────────────────────────────────
 argocd_chart_version: "5.51.6"
 
-# URL de los CRDs de Traefik v3.4 (si necesitas instalarlos manualmente)
+# ── URL de CRDs de Traefik v3.4 ──────────────────────────────────────────────
 traefik_crds_url: "https://raw.githubusercontent.com/traefik/traefik/v3.4.1/pkg/provider/kubernetes/crd/traefik-crd.yaml"
