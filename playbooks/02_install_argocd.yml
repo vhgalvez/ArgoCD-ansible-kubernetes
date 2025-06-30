@@ -1,4 +1,4 @@
-# playbooks/02_install_argocd.yml
+# playbooks\02_install_argocd.yml
 # 🧱 Instalación de ArgoCD + 🌐 Configuración de acceso web: Secret UI + Middleware Traefik + IngressRoute + TLS
 
 ---
@@ -11,6 +11,7 @@
     - ../vars/main.yml
 
   vars:
+    helm_path: "/usr/local/bin/helm"  # Asegura ruta correcta
     mw_auth_template: "../templates/argocd/argocd-dashboard-middleware.yaml.j2"
     ir_template: "../templates/argocd/argocd-dashboard-ingressroute-internal.yaml.j2"
     cm_template: "../templates/argocd/argocd-cm.yaml.j2"
@@ -22,18 +23,19 @@
     cmd_rendered: "{{ playbook_dir }}/files/argocd-cmd-params-cm.yaml"
 
   tasks:
-    # 📥 Instalar ArgoCD vía Helm
+    # 📥 Agregar repositorio Helm
     - name: 📥 Agregar repo Helm de ArgoCD
-      command: helm repo add argo https://argoproj.github.io/argo-helm
+      command: "{{ helm_path }} repo add argo https://argoproj.github.io/argo-helm"
       changed_when: false
 
     - name: 🔄 Actualizar repos Helm
-      command: helm repo update
+      command: "{{ helm_path }} repo update"
       changed_when: false
 
-    - name: 🚀 Instalar ArgoCD con Helm
+    # 🚀 Instalar ArgoCD con Helm
+    - name: 🚀 Instalar ArgoCD
       command: >
-        helm install argocd argo/argo-cd
+        {{ helm_path }} install argocd argo/argo-cd
         --version {{ argocd_chart_version }}
         --namespace {{ argocd_namespace }}
         --create-namespace
@@ -68,7 +70,7 @@
             admin.password: "{{ argocd_admin_password_hash }}"
             admin.passwordMtime: "{{ lookup('pipe', 'date -u +%Y-%m-%dT%H:%M:%SZ') }}"
 
-    # 🧩 ConfigMap con el dominio externo de la UI (sin duplicar server.insecure)
+    # 🧩 ConfigMap con el dominio externo
     - name: 📄 Renderizar plantilla del ConfigMap
       template:
         src: "{{ cm_template }}"
@@ -123,7 +125,7 @@
         rollout restart deployment argocd-server -n {{ argocd_namespace }}
       register: restart_result
       changed_when: true
-      ignore_errors: true  # Por si el rollout aún no está listo tras Helm
+      ignore_errors: true  # por si aún no está listo tras Helm
 
     # 🧹 Limpiar archivos temporales
     - name: 🧹 Borrar archivos temporales
