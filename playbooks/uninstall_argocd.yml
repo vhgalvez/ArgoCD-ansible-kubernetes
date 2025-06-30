@@ -101,7 +101,7 @@
       ignore_errors: true
       tags: [argocd, serviceaccount]
 
-    # 🔐 RBAC (global)
+    # 🔐 RBAC
     - name: ❌ Eliminar ClusterRoleBinding de ArgoCD
       kubernetes.core.k8s:
         state: absent
@@ -111,7 +111,16 @@
       ignore_errors: true
       tags: [argocd, rbac]
 
-    # 📛 CRDs (impiden reinstalación con Helm si existen sin ownership)
+    - name: ❌ Eliminar ClusterRole de ArgoCD Application Controller
+      kubernetes.core.k8s:
+        state: absent
+        kind: ClusterRole
+        api_version: rbac.authorization.k8s.io/v1
+        name: argocd-application-controller
+      ignore_errors: true
+      tags: [argocd, rbac]
+
+    # 🧬 CRDs
     - name: ❌ Eliminar CRDs de ArgoCD
       command: >
         {{ kubectl_path }} --kubeconfig {{ kubeconfig_path }}
@@ -121,7 +130,17 @@
       changed_when: true
       tags: [argocd, crd]
 
-    # 🧹 Namespace completo
+    # 📦 Helm release
+    - name: ❌ Eliminar release Helm de ArgoCD
+      command: >
+        {{ helm_path }} uninstall argocd --namespace {{ argocd_namespace }}
+      register: helm_uninstall
+      failed_when: false
+      changed_when: "'release \"argocd\" uninstalled' in helm_uninstall.stdout"
+      ignore_errors: true
+      tags: [argocd, helm]
+
+    # 🧹 Namespace
     - name: 🧹 Eliminar namespace completo de ArgoCD
       kubernetes.core.k8s:
         name: "{{ argocd_namespace }}"
