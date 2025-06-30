@@ -1,8 +1,8 @@
 # playbooks/02_install_argocd.yml
-# 🌐 Configuración de acceso web de ArgoCD: Secret UI + Middleware Traefik + IngressRoute + TLS
+# 🧱 Instalación de ArgoCD + 🌐 Configuración de acceso web: Secret UI + Middleware Traefik + IngressRoute + TLS
 
 ---
-- name: 🌐 Aplicar configuración de acceso web para ArgoCD
+- name: 🧱 Instalar ArgoCD con Helm y aplicar configuración web
   hosts: localhost
   gather_facts: false
   become: false
@@ -22,6 +22,27 @@
     cmd_rendered: "{{ playbook_dir }}/files/argocd-cmd-params-cm.yaml"
 
   tasks:
+    # 📥 Instalar ArgoCD vía Helm
+    - name: 📥 Agregar repo Helm de ArgoCD
+      command: helm repo add argo https://argoproj.github.io/argo-helm
+      changed_when: false
+
+    - name: 🔄 Actualizar repos Helm
+      command: helm repo update
+      changed_when: false
+
+    - name: 🚀 Instalar ArgoCD con Helm
+      command: >
+        helm install argocd argo/argo-cd
+        --version {{ argocd_chart_version }}
+        --namespace {{ argocd_namespace }}
+        --create-namespace
+        --values {{ playbook_dir }}/templates/argocd/values.yaml.j2
+      register: helm_result
+      changed_when: "'deployed' in helm_result.stdout or 'installed' in helm_result.stdout"
+      environment:
+        KUBECONFIG: "{{ kubeconfig_path }}"
+
     # 🔐 Hashear la contraseña del admin de Argo CD UI
     - name: 🔐 Hashear la contraseña del admin
       command: "htpasswd -nbBC 12 '' '{{ argocd_admin_password_plain }}'"
@@ -102,6 +123,7 @@
         rollout restart deployment argocd-server -n {{ argocd_namespace }}
       register: restart_result
       changed_when: true
+      ignore_errors: true  # Por si el rollout aún no está listo tras Helm
 
     # 🧹 Limpiar archivos temporales
     - name: 🧹 Borrar archivos temporales
