@@ -29,6 +29,7 @@ export ARGOCD_AUTH_PASS="SuperPassword123"
 source .env
 export ARGOCD_AUTH_USER="$ARGOCD_AUTH_USER" \
        ARGOCD_AUTH_PASS="$ARGOCD_ADMIN_PASSWORD"
+       ARGOCD_UI_ADMIN_PASSWORD=SuperAdmin123
 sudo -E ansible-playbook -i inventory/hosts.ini playbooks/deploy_argocd_full.yml
 ```
 
@@ -38,6 +39,19 @@ source .env
 export ARGOCD_AUTH_USER ARGOCD_AUTH_PASS
 ansible-playbook -i inventory/hosts.ini playbooks/deploy_argocd_full.yml
 ``` 
+
+# Cargar variables desde .env
+source .env
+
+# Exportar explícitamente las variables necesarias
+export ARGOCD_AUTH_USER="$ARGOCD_AUTH_USER"
+export ARGOCD_AUTH_PASS="$ARGOCD_AUTH_PASS"
+export ARGOCD_UI_ADMIN_PASSWORD="$ARGOCD_UI_ADMIN_PASSWORD"
+
+# Ejecutar el playbook con privilegios y entorno heredado
+sudo -E ansible-playbook -i inventory/hosts.ini playbooks/deploy_argocd_full.yml
+
+
 
 
 sudo -E ansible-playbook -i inventory/hosts.ini playbooks/uninstall_argocd.yml
