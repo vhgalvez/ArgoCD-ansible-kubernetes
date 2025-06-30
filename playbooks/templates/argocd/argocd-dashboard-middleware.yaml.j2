@@ -7,3 +7,6 @@ metadata:
 spec:
   basicAuth:
     secret: {{ argocd_secret_name }}  # El nombre del Secret que contiene las credenciales de autenticación (htpasswd)
+  headers:
+    customRequestHeaders:
+      X-Forwarded-Proto: "https"
