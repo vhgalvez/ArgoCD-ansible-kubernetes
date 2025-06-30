@@ -10,9 +10,12 @@
     - ../vars/main.yml
 
   vars:
-    mw_template: "../templates/argocd/argocd-dashboard-middleware.yaml.j2"
+    mw_auth_template: "../templates/argocd/argocd-dashboard-middleware.yaml.j2"
+    mw_headers_template: "../templates/argocd/argocd-dashboard-middleware-headers.yaml.j2"
     ir_template: "../templates/argocd/argocd-dashboard-ingressroute-internal.yaml.j2"
-    mw_manifest: "{{ playbook_dir }}/files/argocd-dashboard-middleware.yaml"
+
+    mw_auth_manifest: "{{ playbook_dir }}/files/argocd-dashboard-middleware.yaml"
+    mw_headers_manifest: "{{ playbook_dir }}/files/argocd-dashboard-middleware-headers.yaml"
     ir_manifest: "{{ playbook_dir }}/files/argocd-dashboard-ingressroute.yaml"
 
   tasks:
@@ -50,34 +53,32 @@
       delay: 10
 
     # ------------------------------------------------------------------ #
-    # 1) Middleware ----------------------------------------------------- #
+    # 1) Middleware (Auth + Headers) ----------------------------------- #
     # ------------------------------------------------------------------ #
-    - name: 📄 Renderizar plantilla del Middleware (basic-auth)
+    - name: 📄 Renderizar plantilla del Middleware (auth)
       template:
-        src: "{{ mw_template }}"
-        dest: "{{ mw_manifest }}"
+        src: "{{ mw_auth_template }}"
+        dest: "{{ mw_auth_manifest }}"
 
-    - name: 🚀 Aplicar Middleware al clúster
+    - name: 🚀 Aplicar Middleware (auth) al clúster
       command: >
-        {{ kubectl_path }} --kubeconfig {{ kubeconfig_path }} apply -f {{ mw_manifest }}
-      register: mw_result
-      changed_when: "'created' in mw_result.stdout or 'configured' in mw_result.stdout"
+        {{ kubectl_path }} --kubeconfig {{ kubeconfig_path }} apply -f {{ mw_auth_manifest }}
+      register: mw_auth_result
+      changed_when: "'created' in mw_auth_result.stdout or 'configured' in mw_auth_result.stdout"
 
+    - name: 📄 Renderizar plantilla del Middleware (headers)
+      template:
+        src: "{{ mw_headers_template }}"
+        dest: "{{ mw_headers_manifest }}"
 
-
-      - name: 📄 Renderizar middleware headers para ArgoCD
-  template:
-    src: templates/argocd/argocd-dashboard-middleware-headers.yaml.j2
-    dest: playbooks/files/argocd-dashboard-middleware-headers.yaml
-
-- name: 🚀 Aplicar middleware headers al clúster
-  kubernetes.core.k8s:
-    state: present
-    src: playbooks/files/argocd-dashboard-middleware-headers.yaml
-
+    - name: 🚀 Aplicar Middleware (headers) al clúster
+      command: >
+        {{ kubectl_path }} --kubeconfig {{ kubeconfig_path }} apply -f {{ mw_headers_manifest }}
+      register: mw_headers_result
+      changed_when: "'created' in mw_headers_result.stdout or 'configured' in mw_headers_result.stdout"
 
     # ------------------------------------------------------------------ #
-    # 2) IngressRoute --------------------------------------------------- #
+    # 2) IngressRoute -------------------------------------------------- #
     # ------------------------------------------------------------------ #
     - name: 📄 Renderizar plantilla del IngressRoute
       template:
@@ -91,12 +92,13 @@
       changed_when: "'created' in ir_result.stdout or 'configured' in ir_result.stdout"
 
     # ------------------------------------------------------------------ #
-    # 3) Limpieza ------------------------------------------------------- #
+    # 3) Limpieza ------------------------------------------------------ #
     # ------------------------------------------------------------------ #
     - name: 🧹 Borrar manifiestos temporales
       file:
         path: "{{ item }}"
         state: absent
       loop:
-        - "{{ mw_manifest }}"
+        - "{{ mw_auth_manifest }}"
+        - "{{ mw_headers_manifest }}"
         - "{{ ir_manifest }}"
