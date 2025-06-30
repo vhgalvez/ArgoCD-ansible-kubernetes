@@ -1,3 +1,4 @@
+
 # playbooks/02_install_argocd.yml
 # 🌐 Middleware + IngressRoute para ArgoCD (SOLO auth) + Secret UI
 # 🧩 Aplicar configuración de acceso web para ArgoCD
@@ -20,6 +21,7 @@
     cm_rendered: "{{ playbook_dir }}/files/argocd-cm.yaml"
 
   tasks:
+    # 🕒 Esperar a que el servidor ArgoCD esté disponible
     - name: ⏳ Esperar que argocd-server esté disponible
       kubernetes.core.k8s_info:
         api_version: apps/v1
@@ -35,9 +37,9 @@
       retries: 30
       delay: 10
 
+    # 🔐 Hashear la contraseña del admin para Argo CD UI
     - name: 🔐 Hashear la contraseña del admin para Argo CD UI
-      command: >-
-        htpasswd -nbBC 12 "" "{{ argocd_admin_password_plain }}"
+      command: "htpasswd -nbBC 12 '' '{{ argocd_admin_password_plain }}'"
       register: bcrypt_password_raw
       changed_when: false
 
@@ -60,6 +62,7 @@
             admin.password: "{{ argocd_admin_password_hash }}"
             admin.passwordMtime: "{{ lookup('pipe', 'date -u +%Y-%m-%dT%H:%M:%SZ') }}"
 
+    # 🧩 Renderizar y aplicar ConfigMap con la URL pública
     - name: 📄 Renderizar plantilla de ConfigMap
       template:
         src: "{{ cm_template }}"
@@ -71,6 +74,7 @@
       register: cm_result
       changed_when: "'created' in cm_result.stdout or 'configured' in cm_result.stdout"
 
+    # 📄 Renderizar y aplicar el Middleware de autenticación
     - name: 📄 Renderizar middleware auth
       template:
         src: "{{ mw_auth_template }}"
@@ -82,6 +86,7 @@
       register: mw_auth_result
       changed_when: "'created' in mw_auth_result.stdout or 'configured' in mw_auth_result.stdout"
 
+    # 📄 Renderizar y aplicar IngressRoute
     - name: 📄 Renderizar IngressRoute
       template:
         src: "{{ ir_template }}"
@@ -93,6 +98,7 @@
       register: ir_result
       changed_when: "'created' in ir_result.stdout or 'configured' in ir_result.stdout"
 
+    # 🧹 Limpiar archivos temporales
     - name: 🧹 Borrar archivos temporales
       file:
         path: "{{ item }}"
@@ -102,6 +108,7 @@
         - "{{ ir_manifest }}"
         - "{{ cm_rendered }}"
 
+    # 🔁 Reiniciar despliegue de argocd-server tras actualizar contraseña
     - name: 🔁 Reiniciar despliegue de argocd-server tras actualizar contraseña
       command: >
         {{ kubectl_path }} --kubeconfig {{ kubeconfig_path }}
@@ -110,15 +117,15 @@
       changed_when: "'restarted' in restart_result.stdout"
       tags: [optional]
 
-      
-    - name: 🔐 Hashear la contraseña del admin para Argo CD UI
-      command: >-
-        htpasswd -nbBC 12 "" "{{ argocd_admin_password_plain }}"
-      register: bcrypt_password_raw
-      changed_when: false
-    …
-    - name: 🔁 Reiniciar despliegue de argocd-server
+    # 🧩 Renderizar y aplicar argocd-cmd-params-cm para desactivar TLS interno
+    - name: 📄 Renderizar plantilla argocd-cmd-params-cm
+      template:
+        src: "../templates/argocd/argocd-cmd-params-cm.yaml.j2"
+        dest: "{{ playbook_dir }}/files/argocd-cmd-params-cm.yaml"
+
+    - name: 🚀 Aplicar ConfigMap argocd-cmd-params-cm
       command: >
-        {{ kubectl_path }} --kubeconfig {{ kubeconfig_path }} \
-        rollout restart deployment argocd-server -n {{ argocd_namespace }}
-      changed_when: true
+        {{ kubectl_path }} --kubeconfig {{ kubeconfig_path }}
+        apply -f {{ playbook_dir }}/files/argocd-cmd-params-cm.yaml
+      register: cmd_cm_result
+      changed_when: "'created' in cmd_cm_result.stdout or 'configured' in cmd_cm_result.stdout"
