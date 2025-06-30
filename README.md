@@ -10,6 +10,11 @@ Este proyecto despliega automáticamente ArgoCD en Kubernetes, configurándolo p
 - Colección Ansible para Kubernetes:
 
 
+# .env
+ARGOCD_UI_ADMIN_PASSWORD=SuperAdmin123
+ARGOCD_AUTH_USER=admin
+ARGOCD_AUTH_PASS=SuperPassword123
+
 
 export ARGOCD_AUTH_USER="admin"
 export ARGOCD_AUTH_PASS="SuperPassword123"
