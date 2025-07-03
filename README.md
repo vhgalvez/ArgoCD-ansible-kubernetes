@@ -26,8 +26,8 @@ export ARGOCD_AUTH_PASS="SuperPassword123"
 ```bash
 source .env
 export ARGOCD_AUTH_USER="$ARGOCD_AUTH_USER" \
-       ARGOCD_AUTH_PASS="$ARGOCD_ADMIN_PASSWORD"
-       ARGOCD_UI_ADMIN_PASSWORD=SuperAdmin123
+       ARGOCD_AUTH_PASS="$ARGOCD_AUTH_PASS" \
+       ARGOCD_UI_ADMIN_PASSWORD="$ARGOCD_UI_ADMIN_PASSWORD"
 sudo -E ansible-playbook -i inventory/hosts.ini playbooks/deploy_argocd_full.yml
 ```
 
