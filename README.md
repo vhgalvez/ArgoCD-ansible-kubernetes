@@ -132,3 +132,14 @@ Editar
 [ Login UI Argo CD ] 🔐 (usuario: admin / pass: SuperAdmin123)
         ↓
 [ Acceso a Argo CD como plataforma GitOps ]
+
+
+
+[victory@virtualizacion-server ArgoCD-ansible-kubernetes]$ cat .env
+ARGOCD_UI_ADMIN_PASSWORD=SuperAdmin123
+ARGOCD_AUTH_USER=admin
+ARGOCD_ADMIN_PASSWORD=SuperPassword123
+
+export ARGOCD_AUTH_PASS=SuperAdmin123
+export ARGOCD_ADMIN_PASSWORD=SuperAdmin123
+export ARGOCD_UI_ADMIN_PASSWORD=SuperAdmin123
