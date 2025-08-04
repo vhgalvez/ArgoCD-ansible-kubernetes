@@ -1,145 +1,94 @@
-# Despliegue de ArgoCD en Kubernetes con Ansible
+# Despliegue automatizado de Argo CD con Ansible + Traefik
 
-Este proyecto despliega automáticamente ArgoCD en Kubernetes, configurándolo para exponer su interfaz web mediante un servicio `NodePort` y un `Ingress` con Traefik.
+El objetivo de este proyecto es instalar Argo CD en tu clúster Kubernetes, exponer la interfaz web mediante Traefik IngressRoute y añadir doble capa de autenticación (BasicAuth en Traefik + login nativo de Argo CD).
 
+## Requisitos
 
-## 🚀 Requisitos previos
+| Requisito                          | Detalle                                      |
+|------------------------------------|----------------------------------------------|
+| **Ansible**                        | 2.10 o superior                              |
+| **Colección Ansible kubernetes.core** | `ansible-galaxy collection install kubernetes.core` |
+| **Acceso al clúster (kube-config)** | `~/.kube/config` con contexto por defecto    |
+| **Traefik IngressController**       | Versión 2.x con TLS (Let’s Encrypt o similar)|
 
-- Ansible instalado en la máquina desde la cual ejecutarás el playbook.
-- Acceso al clúster Kubernetes configurado (`~/.kube/config`).
-- Colección Ansible para Kubernetes:
+## Variables sensibles (.env)
 
+Crea un archivo `.env` en la raíz del repo e incluye solo estas claves:
 
-# .env
-ARGOCD_UI_ADMIN_PASSWORD=SuperAdmin123
+```ini
+# Credenciales que protegerán el proxy Traefik (BasicAuth)
 ARGOCD_AUTH_USER=admin
 ARGOCD_AUTH_PASS=SuperPassword123
 
-
-export ARGOCD_UI_ADMIN_PASSWORD="SuperAdmin123"
-export ARGOCD_AUTH_USER="admin"
-export ARGOCD_AUTH_PASS="SuperPassword123"
-
-
-# Despliegue completo de ArgoCD con Ansible
-
-```bash
-source .env
-export ARGOCD_AUTH_USER="$ARGOCD_AUTH_USER" \
-       ARGOCD_AUTH_PASS="$ARGOCD_AUTH_PASS" \
-       ARGOCD_UI_ADMIN_PASSWORD="$ARGOCD_UI_ADMIN_PASSWORD"
-sudo -E ansible-playbook -i inventory/hosts.ini playbooks/deploy_argocd_full.yml
+# Contraseña para el usuario admin de Argo CD
+ARGOCD_UI_ADMIN_PASSWORD=SuperAdmin123
 ```
+> **Nota:** No publiques nunca este archivo en tu repositorio.
 
+## Despliegue paso a paso
 
-```bash
-# Despliegue completo de ArgoCD con Ansible
-source .env
-sudo -E ansible-playbook -i inventory/hosts.ini playbooks/deploy_argocd_full.yml
-``` 
+1. **(Opcional) Desinstalar Argo CD si ya está desplegado**
+   ```bash
+   sudo -E ansible-playbook -i inventory/hosts.ini playbooks/uninstall_argocd.yml
+   ```
 
-# Cargar variables desde .env
-source .env
+2. **Cargar variables de entorno desde el archivo `.env`**
+   ```bash
+   source .env
+   ```
 
-# Exportar explícitamente las variables necesarias
-export ARGOCD_AUTH_USER="$ARGOCD_AUTH_USER"
-export ARGOCD_AUTH_PASS="$ARGOCD_AUTH_PASS"
-export ARGOCD_UI_ADMIN_PASSWORD="$ARGOCD_UI_ADMIN_PASSWORD"
+3. **Exportar explícitamente las variables necesarias para Ansible**
+   ```bash
+   export ARGOCD_AUTH_USER="$ARGOCD_AUTH_USER"
+   export ARGOCD_AUTH_PASS="$ARGOCD_AUTH_PASS"
+   export ARGOCD_UI_ADMIN_PASSWORD="$ARGOCD_UI_ADMIN_PASSWORD"
+   ```
 
-# Ejecutar el playbook con privilegios y entorno heredado
-sudo -E ansible-playbook -i inventory/hosts.ini playbooks/deploy_argocd_full.yml
+4. **Ejecutar el playbook de despliegue completo de ArgoCD**
+   ```bash
+   sudo -E ansible-playbook -i inventory/hosts.ini playbooks/deploy_argocd_full.yml
+   ```
 
-
-
-
-sudo -E ansible-playbook -i inventory/hosts.ini playbooks/uninstall_argocd.yml
-
-source .env
-sudo -E ansible-playbook -i inventory/hosts.ini playbooks/deploy_argocd_full.yml
-
-
-## ✅ Validación del despliegue
+## Validar el despliegue
 
 Puedes verificar que ArgoCD esté funcionando correctamente:
 
 ```bash
 kubectl get pods -n argocd -o wide
-
-kubectl get pods -n argocd
 kubectl get svc -n argocd
-kubectl get ingress -n argocd
 kubectl get ingress -n argocd -o wide
 ```
 
+Después abre:
 
+```bash
+https://argocd.<TU_DOMINIO>
+```
 
-🔐 1. Autenticación de Traefik (middleware BasicAuth)
-¿Qué hace?
+- **Traefik BasicAuth** → `admin / SuperPassword123`
+- **Login Argo CD** → `admin / SuperAdmin123`
 
-Protege la URL pública (https://argocd.socialdevs.site) a nivel del proxy Traefik.
+## Capas de seguridad
 
-Actúa antes de que el tráfico llegue a Argo CD.
+| Capa                          | Archivo Jinja / Recurso                      | Usuario / Contraseña (ejemplo) |
+|-------------------------------|-----------------------------------------------|--------------------------------|
+| **BasicAuth (Traefik)**       | `basic-auth-secret.yaml.j2` + `argocd-dashboard-middleware.yaml.j2` | `admin / SuperPassword123`     |
+| **Login nativo (Argo CD)**    | `argocd-secret` (contraseña bcrypt)           | `admin / SuperAdmin123`        |
 
-Usa credenciales en formato htpasswd (usuario/contraseña), generadas con Ansible y selladas con Sealed Secrets.
+## Flujo de acceso
 
-Dónde se define:
+```text
+Cliente ──▶ Traefik Ingress (TLS + BasicAuth) ──▶ Service argocd-server (HTTP) ──▶ UI Argo CD (login nativo)
+```
 
-argocd_auth_user y argocd_auth_pass (env: ARGOCD_AUTH_USER, ARGOCD_AUTH_PASS)
+## Desinstalar
 
-Se usa en:
+1. **Cargar variables de entorno**
+   ```bash
+   source .env
+   ```
 
-basic-auth-secret.yaml.j2
-
-argocd-dashboard-middleware.yaml.j2
-
-IngressRoute con middlewares: [...]
-
-Objetivo:
-
-Añadir una capa de seguridad HTTP básica (401) para proteger el acceso externo, incluso si el backend está vulnerable o sin TLS interno.
-
-🔐 2. Autenticación nativa de Argo CD
-¿Qué hace?
-
-Es la autenticación real del sistema Argo CD, una vez que el usuario pasa el proxy.
-
-Gestiona accesos, permisos, tokens, SSO, etc.
-
-Usa el usuario admin y su contraseña hasheada (bcrypt) en un Secret.
-
-Dónde se define:
-
-argocd_admin_password_plain → se genera en .env con ARGOCD_UI_ADMIN_PASSWORD
-
-Se hashea con htpasswd -nbBC 12
-
-Se aplica en el Secret argocd-secret
-
-Objetivo:
-
-Permitir login a la UI o API de Argo CD con credenciales seguras.
-
-🔄 Flujo completo de acceso web
-less
-Copiar
-Editar
-[ Cliente HTTP(S) ]
-        ↓
-[ Traefik IngressRoute con TLS + BasicAuth Middleware ] 🔐 (usuario: admin / pass: SuperPassword123)
-        ↓
-[ Servicio argocd-server en HTTP interno ]
-        ↓
-[ Login UI Argo CD ] 🔐 (usuario: admin / pass: SuperAdmin123)
-        ↓
-[ Acceso a Argo CD como plataforma GitOps ]
-
-
-
-[victory@virtualizacion-server ArgoCD-ansible-kubernetes]$ cat .env
-ARGOCD_UI_ADMIN_PASSWORD=SuperAdmin123
-ARGOCD_AUTH_USER=admin
-ARGOCD_ADMIN_PASSWORD=SuperPassword123
-
-export ARGOCD_AUTH_PASS=SuperAdmin123
-export ARGOCD_ADMIN_PASSWORD=SuperAdmin123
-export ARGOCD_UI_ADMIN_PASSWORD=SuperAdmin123
+2. **Ejecutar el playbook de desinstalación**
+   ```bash
+   sudo -E ansible-playbook -i inventory/hosts.ini playbooks/uninstall_argocd.yml
+   ```
